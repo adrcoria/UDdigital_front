@@ -7,6 +7,7 @@ import ConceptService from "@/app/http/services/conceptService";
 import ConceptCategoryService from "@/app/http/services/conceptCategoryService";
 import FileService from "@/app/http/services/fileService";
 import FakeBackendService from "@/app/http/services/fakeBackendService";
+import VerifyService from "./services/verifyService";
 
 const ledgerAccountService = new LedgerAccountService();
 const userService = new UserService();
@@ -17,11 +18,13 @@ const conceptCategoryService = new ConceptCategoryService();
 const fileService = new FileService();
 const accountService = new AccountService();
 const fakeBackendService = new FakeBackendService();
+const verifyService = new VerifyService
 
 export {
   ledgerAccountService,
   userService,
   accountService,
+  verifyService,
 
   suscriptionService,
 

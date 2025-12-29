@@ -82,7 +82,7 @@ watch(sideBarSize, () => {
             <img src="@/assets/images/logo_2024.png" alt=""  />
           </span>
           <span class="logo-lg">
-            <img src="@/assets/images/logo_2024.png" alt="" height="150" style="margin-top: 25px;" />
+            <img src="@/assets/images/logo_2024.png" alt="" height="100" style="margin-top: 50px;" />
           </span>
         </router-link>
         <v-btn text="" class="header-item btn-vertical-sm-hover">
