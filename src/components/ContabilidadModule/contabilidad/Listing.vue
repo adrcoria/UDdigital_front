@@ -56,7 +56,7 @@ const headers = [
 ];
 
 const actionMenu = [
-  { title: "Editar", icon: "ph-pencil", value: "edit" },
+  // { title: "Editar", icon: "ph-pencil", value: "edit" },
   { title: "Eliminar", icon: "ph-trash", value: "delete" },
 ];
 
