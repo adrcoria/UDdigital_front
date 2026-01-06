@@ -98,6 +98,11 @@ const quantityRules = computed(() => (touched.value.quantity ? [req, reqPositive
 const amountRules = computed(() => (touched.value.amount ? [req, reqPositive] : []));
 const dateRules = computed(() => (touched.value.operationDate ? [req] : []));
 
+const openMenu = (e: MouseEvent) => {
+  // Evita que el click cierre el diálogo o dispare cosas raras
+  e.stopPropagation();
+};
+
 /* ---------- Validez general (para habilitar Guardar) ---------- */
 const isFormValid = computed(() => {
   return (
@@ -384,151 +389,138 @@ const save = async () => {
 
       <v-card-text>
         <div class="row">
-          <v-select
-            v-model="form.accountId"
-            label="Cuenta *"
-            :items="accounts"
-            item-title="name"
-            item-value="id"
-            :loading="loadingAccounts"
-            :rules="accountRules"
-            @blur="touched.accountId = true"
-          />
-          <v-btn icon @click="newAccount"><v-icon>mdi-plus</v-icon></v-btn>
-          <v-btn icon :disabled="!form.accountId" @click="editAccount"><v-icon>mdi-pencil</v-icon></v-btn>
-          <v-btn icon :disabled="!form.accountId" @click="askDeleteAccount">
-            <v-icon color="red">mdi-delete</v-icon>
+          <v-select v-model="form.accountId" label="Cuenta *" :items="accounts" item-title="name" item-value="id"
+            :loading="loadingAccounts" :rules="accountRules" @blur="touched.accountId = true" class="flex-1" />
+
+          <!-- Acción principal -->
+          <v-btn icon variant="text" @click="newAccount" aria-label="Agregar cuenta">
+            <v-icon>mdi-plus</v-icon>
           </v-btn>
+
+          <!-- Menú 3 puntos -->
+          <v-menu location="bottom end">
+            <template #activator="{ props: menuProps }">
+              <v-btn icon variant="text" v-bind="menuProps" :disabled="!form.accountId" @click="openMenu"
+                aria-label="Más acciones cuenta">
+                <v-icon>mdi-dots-vertical</v-icon>
+              </v-btn>
+            </template>
+
+            <v-list density="compact">
+              <v-list-item @click="editAccount" :disabled="!form.accountId">
+                <template #prepend><v-icon size="18">mdi-pencil</v-icon></template>
+                <v-list-item-title>Editar</v-list-item-title>
+              </v-list-item>
+
+              <v-list-item @click="askDeleteAccount" :disabled="!form.accountId">
+                <template #prepend><v-icon size="18" color="error">mdi-delete</v-icon></template>
+                <v-list-item-title class="text-error">Eliminar</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-menu>
         </div>
 
         <div class="row">
-          <v-select
-            v-model="form.categoryId"
-            label="Categoría *"
-            :items="categories"
-            item-title="name"
-            item-value="id"
-            :loading="loadingCategories"
-            :rules="categoryRules"
-            @blur="touched.categoryId = true"
-          />
-          <v-btn icon @click="newCategory"><v-icon>mdi-plus</v-icon></v-btn>
-          <v-btn icon :disabled="!form.categoryId" @click="editCategory"><v-icon>mdi-pencil</v-icon></v-btn>
-          <v-btn icon :disabled="!form.categoryId" @click="askDeleteCategory">
-            <v-icon color="red">mdi-delete</v-icon>
+          <v-select v-model="form.categoryId" label="Categoría *" :items="categories" item-title="name" item-value="id"
+            :loading="loadingCategories" :rules="categoryRules" @blur="touched.categoryId = true" class="flex-1" />
+
+          <v-btn icon variant="text" @click="newCategory" aria-label="Agregar categoría">
+            <v-icon>mdi-plus</v-icon>
           </v-btn>
+
+          <v-menu location="bottom end">
+            <template #activator="{ props: menuProps }">
+              <v-btn icon variant="text" v-bind="menuProps" :disabled="!form.categoryId" @click="openMenu"
+                aria-label="Más acciones categoría">
+                <v-icon>mdi-dots-vertical</v-icon>
+              </v-btn>
+            </template>
+
+            <v-list density="compact">
+              <v-list-item @click="editCategory" :disabled="!form.categoryId">
+                <template #prepend><v-icon size="18">mdi-pencil</v-icon></template>
+                <v-list-item-title>Editar</v-list-item-title>
+              </v-list-item>
+
+              <v-list-item @click="askDeleteCategory" :disabled="!form.categoryId">
+                <template #prepend><v-icon size="18" color="error">mdi-delete</v-icon></template>
+                <v-list-item-title class="text-error">Eliminar</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-menu>
         </div>
 
         <div class="row">
-          <v-select
-            v-model="form.conceptId"
-            label="Concepto *"
-            :items="concepts"
-            item-title="name"
-            item-value="id"
-            :disabled="!form.categoryId"
-            :loading="loadingConcepts"
-            :rules="conceptRules"
-            @blur="touched.conceptId = true"
-          />
-          <v-btn icon :disabled="!form.categoryId" @click="newConcept"><v-icon>mdi-plus</v-icon></v-btn>
-          <v-btn icon :disabled="!form.conceptId" @click="editConcept"><v-icon>mdi-pencil</v-icon></v-btn>
-          <v-btn icon :disabled="!form.conceptId" @click="askDeleteConcept">
-            <v-icon color="red">mdi-delete</v-icon>
+          <v-select v-model="form.conceptId" label="Concepto *" :items="concepts" item-title="name" item-value="id"
+            :disabled="!form.categoryId" :loading="loadingConcepts" :rules="conceptRules"
+            @blur="touched.conceptId = true" class="flex-1" />
+
+          <v-btn icon variant="text" :disabled="!form.categoryId" @click="newConcept" aria-label="Agregar concepto">
+            <v-icon>mdi-plus</v-icon>
           </v-btn>
+
+          <v-menu location="bottom end">
+            <template #activator="{ props: menuProps }">
+              <v-btn icon variant="text" v-bind="menuProps" :disabled="!form.conceptId" @click="openMenu"
+                aria-label="Más acciones concepto">
+                <v-icon>mdi-dots-vertical</v-icon>
+              </v-btn>
+            </template>
+
+            <v-list density="compact">
+              <v-list-item @click="editConcept" :disabled="!form.conceptId">
+                <template #prepend><v-icon size="18">mdi-pencil</v-icon></template>
+                <v-list-item-title>Editar</v-list-item-title>
+              </v-list-item>
+
+              <v-list-item @click="askDeleteConcept" :disabled="!form.conceptId">
+                <template #prepend><v-icon size="18" color="error">mdi-delete</v-icon></template>
+                <v-list-item-title class="text-error">Eliminar</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-menu>
         </div>
 
-        <v-alert
-          v-if="polarityLabel"
-          :type="polarityAlertType"
-          density="compact"
-          class="mb-3"
-        >
+
+        <v-alert v-if="polarityLabel" :type="polarityAlertType" density="compact" class="mb-3">
           Este concepto corresponde a un <b>{{ polarityLabel }}</b>.
         </v-alert>
 
-        <v-text-field
-          label="Descripción *"
-          v-model="form.description"
-          :rules="descriptionRules"
-          @blur="touched.description = true"
-        />
-        <v-text-field
-          type="number"
-          label="Cantidad *"
-          v-model.number="form.quantity"
-          :rules="quantityRules"
-          @blur="touched.quantity = true"
-        />
-        <v-text-field
-          type="number"
-          label="Monto *"
-          v-model.number="form.amount"
-          :rules="amountRules"
-          @blur="touched.amount = true"
-        />
-        <v-text-field
-          type="date"
-          label="Fecha *"
-          v-model="form.operationDate"
-          :rules="dateRules"
-          @blur="touched.operationDate = true"
-        />
+        <v-text-field label="Comentarios *" v-model="form.description" :rules="descriptionRules"
+          @blur="touched.description = true" />
+        <v-text-field type="number" label="Cantidad *" v-model.number="form.quantity" :rules="quantityRules"
+          @blur="touched.quantity = true" />
+        <v-text-field type="number" label="Monto *" v-model.number="form.amount" :rules="amountRules"
+          @blur="touched.amount = true" />
+        <v-text-field type="date" label="Fecha *" v-model="form.operationDate" :rules="dateRules"
+          @blur="touched.operationDate = true" />
       </v-card-text>
 
       <v-card-actions>
         <v-spacer />
         <v-btn variant="text" @click="dialog = false">Cancelar</v-btn>
-        <v-btn
-          color="primary"
-          :loading="loading"
-          :disabled="!isFormValid"
-          @click="save"
-        >
+        <v-btn color="primary" :loading="loading" :disabled="!isFormValid" @click="save">
           Guardar
         </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
 
-  <CreateEditLedgerAccountDialog
-    v-model="showAccountDialog"
-    :account="editingAccount"
-    @refresh="reloadAccounts"
-  />
-  <CreateEditConceptCategoryDialog
-    v-model="showCategoryDialog"
-    :category="editingCategory"
-    @refresh="reloadCategories"
-  />
-  <CreateEditConceptDialog
-    v-model="showConceptDialog"
-    :concept="editingConcept"
-    :categoryId="form.categoryId"
-    @refresh="reloadConcepts"
-  />
+  <CreateEditLedgerAccountDialog v-model="showAccountDialog" :account="editingAccount" @refresh="reloadAccounts" />
+  <CreateEditConceptCategoryDialog v-model="showCategoryDialog" :category="editingCategory"
+    @refresh="reloadCategories" />
+  <CreateEditConceptDialog v-model="showConceptDialog" :concept="editingConcept" :categoryId="form.categoryId"
+    @refresh="reloadConcepts" />
 
-  <RemoveItemConfirmationDialog
-    v-model="confirmDeleteAccountDialog"
-    :loading="deletingAccount"
-    title="Eliminar cuenta"
+  <RemoveItemConfirmationDialog v-model="confirmDeleteAccountDialog" :loading="deletingAccount" title="Eliminar cuenta"
     message="¿Seguro que deseas eliminar esta cuenta? Esta acción no se puede deshacer."
-    @onConfirm="confirmDeleteAccount"
-  />
-  <RemoveItemConfirmationDialog
-    v-model="confirmDeleteCategoryDialog"
-    :loading="deletingCategory"
-    title="Eliminar categoría"
-    message="¿Seguro que deseas eliminar esta categoría? Esta acción no se puede deshacer."
-    @onConfirm="confirmDeleteCategory"
-  />
-  <RemoveItemConfirmationDialog
-    v-model="confirmDeleteConceptDialog"
-    :loading="deletingConcept"
-    title="Eliminar concepto"
-    message="¿Seguro que deseas eliminar este concepto? Esta acción no se puede deshacer."
-    @onConfirm="confirmDeleteConcept"
-  />
+    @onConfirm="confirmDeleteAccount" />
+  <RemoveItemConfirmationDialog v-model="confirmDeleteCategoryDialog" :loading="deletingCategory"
+    title="Eliminar categoría" message="¿Seguro que deseas eliminar esta categoría? Esta acción no se puede deshacer."
+    @onConfirm="confirmDeleteCategory" />
+  <RemoveItemConfirmationDialog v-model="confirmDeleteConceptDialog" :loading="deletingConcept"
+    title="Eliminar concepto" message="¿Seguro que deseas eliminar este concepto? Esta acción no se puede deshacer."
+    @onConfirm="confirmDeleteConcept" />
 </template>
 
 <style scoped>
@@ -537,5 +529,10 @@ const save = async () => {
   gap: 6px;
   align-items: center;
   margin-bottom: 12px;
+}
+
+.flex-1 {
+  flex: 1;
+  min-width: 0; /* importante para que no rompa */
 }
 </style>

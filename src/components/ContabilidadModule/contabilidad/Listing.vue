@@ -81,7 +81,7 @@ const headers = [
   { title: "Cuenta" },
   { title: "Categoría" },
   { title: "Concepto" },
-  { title: "Operación" },
+  { title: "Comentarios" },
   { title: "Cantidad" },
   { title: "Monto" },
   { title: "Total" },
@@ -312,11 +312,18 @@ const confirmDelete = async () => {
 
 <template>
   <v-card>
-    <v-card-title class="d-flex justify-space-between">
-      Operaciones del día
-      <v-btn color="primary" @click="onCreate">
-        Registrar operación
-      </v-btn>
+    <v-card-title class="py-4">
+      <v-row class="w-100" align="center" no-gutters>
+        <v-col cols="12" sm="auto" class="pr-sm-3">
+          <div class="text-h6">Operaciones del día</div>
+        </v-col>
+
+        <v-col cols="12" sm="auto" class="d-flex justify-sm-end mt-2 mt-sm-0">
+          <v-btn color="primary" block class="w-sm-auto" @click="onCreate">
+            Registrar operación
+          </v-btn>
+        </v-col>
+      </v-row>
     </v-card-title>
 
     <v-card-text>
