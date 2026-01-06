@@ -5,11 +5,11 @@ import { OptionType } from "@/app/common/types/option.type";
 
 export const productBreadcrumb: BreadcrumbType[] = [
   {
-    title: "Modulo de suscripciones",
+    title: "Administración",
     disabled: false,
   },
   {
-    title: "Suscripciones",
+    title: "Ingresos y Egresos",
     disabled: true,
   },
 ];
