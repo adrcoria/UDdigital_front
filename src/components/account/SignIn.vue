@@ -13,6 +13,7 @@ const isSubmitted = ref(false);
 const isRemember = ref(false);
 const errorMsg = ref("");
 const formData = ref({
+  companyCode: { value: "", isValid: true },
   mail: { value: "", isValid: true },
   password: { value: "", isValid: true },
 });
@@ -25,6 +26,10 @@ const emailRules = [
 
 const passwordRules = [
   v => !!v || 'La contraseña es requerida',
+];
+
+const companyCodeRules = [
+  v => !!v || 'El código de empresa es requerido',
 ];
 
 const SECRET_KEY = "UGDigital2025$$";
@@ -43,11 +48,11 @@ const onSignIn = async () => {
     errorMsg.value = "";
 
     const payload = {
-      password: formData.value.password.value,
+      companyCode: formData.value.companyCode.value,
       mail: formData.value.mail.value,
+      password: formData.value.password.value,
     };
     const response = await accountService.login(payload);
-    console.log('respuesta',response);
 
     if ([200, 201].includes(response.data.statusCode)) {
       if (response.data.data.isRequiredChangePassword) {
@@ -64,8 +69,13 @@ const onSignIn = async () => {
         localStorage.setItem("refreshTokenExpiresIn", refreshTokenExpiresIn);
         const encryptedMail = CryptoJS.AES.encrypt(formData.value.mail.value, SECRET_KEY).toString();
         const encryptedPassword = CryptoJS.AES.encrypt(formData.value.password.value, SECRET_KEY).toString();
+        const encryptedCompanyCode = CryptoJS.AES.encrypt(
+          formData.value.companyCode.value,
+          SECRET_KEY
+        ).toString();
         localStorage.setItem("mail", encryptedMail);
         localStorage.setItem("password", encryptedPassword);
+        localStorage.setItem("companyCode", encryptedCompanyCode);
       } else {
         sessionStorage.setItem("accessToken", accessToken);
         sessionStorage.setItem("accesTokenExpiresIn", accesTokenExpiresIn);
@@ -74,13 +84,14 @@ const onSignIn = async () => {
         sessionStorage.setItem("refreshTokenExpiresIn", refreshTokenExpiresIn);
         localStorage.removeItem("mail");
         localStorage.removeItem("password");
+        localStorage.removeItem("companyCode");
       }
       router.push({ path: "/" });
     } else {
       errorMsg.value = "Credenciales de acceso incorrectas";
     }
   } catch (error: any) {
-    if(error.status===401){
+    if (error.status === 401) {
       errorMsg.value = "Credenciales de acceso incorrectas";
       return;
     }
@@ -93,14 +104,36 @@ const onSignIn = async () => {
 onMounted(() => {
   const encryptedMail = localStorage.getItem("mail");
   const encryptedPassword = localStorage.getItem("password");
-  if (encryptedMail && encryptedPassword) {
-    formData.value.mail.value = CryptoJS.AES.decrypt(encryptedMail, SECRET_KEY).toString(CryptoJS.enc.Utf8);
-    formData.value.password.value = CryptoJS.AES.decrypt(encryptedPassword, SECRET_KEY).toString(CryptoJS.enc.Utf8);
-    isRemember.value = true;
-  } else {
-    isRemember.value = false;
+  const encryptedCompanyCode = localStorage.getItem("companyCode");
+
+  if (encryptedMail) {
+    formData.value.mail.value = CryptoJS.AES.decrypt(
+      encryptedMail,
+      SECRET_KEY
+    ).toString(CryptoJS.enc.Utf8);
   }
+
+  if (encryptedPassword) {
+    formData.value.password.value = CryptoJS.AES.decrypt(
+      encryptedPassword,
+      SECRET_KEY
+    ).toString(CryptoJS.enc.Utf8);
+  }
+
+  if (encryptedCompanyCode) {
+    formData.value.companyCode.value = CryptoJS.AES.decrypt(
+      encryptedCompanyCode,
+      SECRET_KEY
+    ).toString(CryptoJS.enc.Utf8);
+  }
+
+  isRemember.value = !!(
+    encryptedMail &&
+    encryptedPassword &&
+    encryptedCompanyCode
+  );
 });
+
 </script>
 <template>
   <div class="h-100 d-flex align-center justify-center">
@@ -123,6 +156,13 @@ onMounted(() => {
               </div>
               <v-text-field id="email-field" variant="solo" density="compact" v-model="formData.mail.value"
                 :rules="emailRules" placeholder="Ingresa tu correo" />
+              <div class="font-weight-medium mb-1">
+                Código de empresa <i class="ph-asterisk ph-xs text-danger" />
+              </div>
+
+              <v-text-field id="company-code-field" variant="solo" density="compact"
+                v-model="formData.companyCode.value" :rules="companyCodeRules"
+                placeholder="Ingresa el código de empresa" />
               <div class="d-flex justify-space-between align-center mt-4">
                 <div class="font-weight-medium">
                   Captura tu contraseña <i class="ph-asterisk ph-xs text-danger" />

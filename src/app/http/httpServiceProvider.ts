@@ -9,11 +9,14 @@ import FileService from "@/app/http/services/fileService";
 import FakeBackendService from "@/app/http/services/fakeBackendService";
 import VerifyService from "./services/verifyService";
 import OperationImageService from "./services/operationImageService";
-
+import CompanyService from "./services/companyService";
+import ReportService from "./services/reportService";
 const ledgerAccountService = new LedgerAccountService();
 const userService = new UserService();
 const suscriptionService = new SuscriptionService();
 const operationsService = new OperationsService();
+const reportService = new ReportService();
+
 const conceptService = new ConceptService();
 const conceptCategoryService = new ConceptCategoryService();
 const fileService = new FileService();
@@ -21,6 +24,7 @@ const accountService = new AccountService();
 const fakeBackendService = new FakeBackendService();
 const verifyService = new VerifyService
 const operationImageService = new OperationImageService();
+const companyService = new CompanyService();
 
 export {
   ledgerAccountService,
@@ -29,11 +33,11 @@ export {
   verifyService,
   operationImageService,
   suscriptionService,
-
+  companyService,
   operationsService,
   conceptService,
   conceptCategoryService,
-
+  reportService,
   fileService,
   fakeBackendService
 };

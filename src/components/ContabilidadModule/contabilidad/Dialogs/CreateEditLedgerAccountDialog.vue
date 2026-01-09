@@ -15,20 +15,30 @@ const form = ref({ name: "", description: "", currentBalance: 0 });
 const loading = ref(false);
 
 watch(
-    () => props.account,
-    acc => {
-        if (acc) {
-            form.value = {
-                name: acc.name,
-                description: acc.description,
-                currentBalance: Number(acc.currentBalance || 0),
-            };
-        } else {
-            form.value = { name: "", description: "", currentBalance: 0 };
-        }
-    },
-    { immediate: true }
+  () => props.account,
+  acc => {
+    if (acc) {
+      form.value = {
+        name: acc.name ?? "",
+        description: acc.description ?? "",
+        currentBalance: Number(acc.currentBalance || 0),
+      };
+    } else {
+      form.value = { name: "", description: "", currentBalance: 0 };
+    }
+  },
+  { immediate: true }
 );
+
+watch(
+  () => props.modelValue,
+  (open) => {
+    if (!open) {
+      form.value = { name: "", description: "", currentBalance: 0 };
+    }
+  }
+);
+
 const save = async () => {
     try {
         loading.value = true;

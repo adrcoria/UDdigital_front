@@ -20,6 +20,7 @@ const dialog = ref(false);
 watch(() => props.modelValue, v => (dialog.value = v), { immediate: true });
 watch(dialog, v => emit("update:modelValue", v));
 
+
 /* ---------- Confirmaciones / loaders borrado ---------- */
 const confirmDeleteAccountDialog = ref(false);
 const deletingAccount = ref(false);
@@ -34,6 +35,7 @@ const form = ref({
   accountId: "",
   categoryId: "",
   conceptId: "",
+  measurement : "",
   description: "",
   quantity: 1,
   amount: 0,
@@ -44,6 +46,7 @@ const resetForm = () => {
   form.value = {
     accountId: "",
     categoryId: "",
+    measurement: "",
     conceptId: "",
     description: "",
     quantity: 1,
@@ -84,7 +87,8 @@ const touched = ref({
   description: false,
   quantity: false,
   amount: false,
-  operationDate: false
+  operationDate: false,
+  measurement: false
 });
 
 const req = (v: any) => !!v || "Obligatorio";
@@ -97,12 +101,13 @@ const descriptionRules = computed(() => (touched.value.description ? [req] : [])
 const quantityRules = computed(() => (touched.value.quantity ? [req, reqPositive] : []));
 const amountRules = computed(() => (touched.value.amount ? [req, reqPositive] : []));
 const dateRules = computed(() => (touched.value.operationDate ? [req] : []));
-
+const unitRules = computed(() => (touched.value.measurement ? [req] : []));
 const openMenu = (e: MouseEvent) => {
   // Evita que el click cierre el diálogo o dispare cosas raras
   e.stopPropagation();
 };
 
+/* ---------- Validez general (para habilitar Guardar) ---------- */
 /* ---------- Validez general (para habilitar Guardar) ---------- */
 const isFormValid = computed(() => {
   return (
@@ -111,15 +116,54 @@ const isFormValid = computed(() => {
     !!form.value.conceptId &&
     !!form.value.description &&
     Number(form.value.quantity) > 0 &&
+    !!form.value.measurement &&
     Number(form.value.amount) > 0 &&
     !!form.value.operationDate
   );
 });
 
+const unitsOfMeasure = [
+  // --- Productos / Inventario ---
+  { title: 'Pieza (Pz)', value: 'PZ' },
+  { title: 'Caja (Cj)', value: 'CJ' },
+  { title: 'Paquete (Pqt)', value: 'PQT' },
+  { title: 'Servicio (Serv)', value: 'SERV' },
+
+  // --- Peso ---
+  { title: 'Kilogramo (Kg)', value: 'KG' },
+  { title: 'Gramo (g)', value: 'G' },
+  { title: 'Tonelada (Ton)', value: 'TON' },
+  { title: 'Libra (Lb)', value: 'LB' },
+
+  // --- Volumen / Líquidos ---
+  { title: 'Litro (L)', value: 'L' },
+  { title: 'Mililitro (ml)', value: 'ML' },
+  { title: 'Galón (Gal)', value: 'GAL' },
+
+  // --- Medidas de Tiempo (Para servicios/honorarios) ---
+  { title: 'Hora (Hrs)', value: 'HRS' },
+  { title: 'Día (Día)', value: 'DIA' },
+  { title: 'Mes (Mes)', value: 'MES' },
+
+  // --- Longitud / Superficie ---
+  { title: 'Metro (m)', value: 'M' },
+  { title: 'Metro Cuadrado (m2)', value: 'M2' },
+  { title: 'Centímetro (cm)', value: 'CM' },
+
+  // --- Otras ---
+  { title: 'Otro / Global', value: 'GLOBAL' }
+];
+
 /* ---------- Polarity label ---------- */
 const selectedConcept = computed(() =>
   concepts.value.find((c: any) => c.id === form.value.conceptId) || null
 );
+
+const onCategorySaved = async () => {
+  if (!form.value.accountId) return;
+  await reloadCategories(form.value.accountId);
+  form.value.categoryId = "";
+};
 
 const polarityLabel = computed(() => {
   if (!selectedConcept.value) return "";
@@ -144,15 +188,23 @@ const reloadAccounts = async () => {
   }
 };
 
-const reloadCategories = async () => {
+const reloadCategories = async (accountId?: string) => {
+  if (!accountId) {
+    categories.value = [];
+    return;
+  }
+
   loadingCategories.value = true;
   try {
-    const res = await conceptCategoryService.getConceptCategories();
+    const res = await conceptCategoryService.getConceptCategories(
+      accountId,
+    );
     categories.value = res.data.data;
   } finally {
     loadingCategories.value = false;
   }
 };
+
 
 const reloadConcepts = async () => {
   if (!form.value.categoryId) {
@@ -201,33 +253,54 @@ watch(
   }
 );
 
+watch(
+  () => form.value.accountId,
+  async (newAccountId) => {
+    form.value.categoryId = "";
+    form.value.conceptId = "";
+    categories.value = [];
+    concepts.value = [];
+
+    if (!newAccountId) return;
+
+    try {
+      await reloadCategories(newAccountId);
+    } catch {
+      showErrorAlert("No se pudieron cargar las categorías");
+    }
+  }
+);
+
+
 /* ---------- Watch: editar operación ---------- */
 watch(
   () => props.operation,
   async (op) => {
     if (op) {
-      // OJO: aquí respeto tu estructura original, pero corrigiendo FECHA a substring(0,10)
       form.value = {
         accountId: op.idAccount,
-        categoryId: op.concept?.idConceptCategory, // tu original
-        conceptId: op.idConcept,
+        categoryId: "",
+        conceptId: "",
         description: op.description,
         quantity: op.quantity || 1,
         amount: Number(op.amount),
-        operationDate: op.operationDate?.substring(0, 10), // ✅ SOLO FECHA
+        operationDate: op.operationDate?.substring(0, 10),
       };
 
-      // Si entramos en edición, necesitamos cargar conceptos de esa categoría
+      // 1️⃣ Cargar categorías por cuenta
+      await reloadCategories(op.idAccount);
+
+      // 2️⃣ Setear categoría
+      form.value.categoryId = op.concept?.idConceptCategory || "";
+
+      // 3️⃣ Cargar conceptos por categoría
       if (form.value.categoryId) {
-        try {
-          loadingConcepts.value = true;
-          const res = await conceptService.getConcepts(form.value.categoryId);
-          concepts.value = res.data.data;
-        } finally {
-          loadingConcepts.value = false;
-        }
+        const res = await conceptService.getConcepts(form.value.categoryId);
+        concepts.value = res.data.data;
+        form.value.conceptId = op.idConcept;
       }
-    } else {
+    }
+    else {
       resetForm();
       concepts.value = [];
       touched.value = {
@@ -245,7 +318,12 @@ watch(
 );
 
 /* ---------- Acciones Cuenta ---------- */
-const newAccount = () => { editingAccount.value = null; showAccountDialog.value = true; };
+
+const newAccount = () => {
+  editingAccount.value = null; // 🔥 CLAVE
+  showAccountDialog.value = true;
+};
+
 const editAccount = () => {
   editingAccount.value = accounts.value.find(a => a.id === form.value.accountId) || null;
   showAccountDialog.value = true;
@@ -271,7 +349,13 @@ const confirmDeleteAccount = async () => {
 };
 
 /* ---------- Acciones Categoría ---------- */
-const newCategory = () => { editingCategory.value = null; showCategoryDialog.value = true; };
+
+const newCategory = () => {
+  editingCategory.value = null;
+  showCategoryDialog.value = true;
+};
+
+
 const editCategory = () => {
   editingCategory.value = categories.value.find(c => c.id === form.value.categoryId) || null;
   showCategoryDialog.value = true;
@@ -281,17 +365,26 @@ const askDeleteCategory = () => {
   if (!form.value.categoryId) return;
   confirmDeleteCategoryDialog.value = true;
 };
-
 const confirmDeleteCategory = async () => {
   try {
     deletingCategory.value = true;
+
+    // 1. Ejecutar el borrado
     await conceptCategoryService.deleteConceptCategory(form.value.categoryId);
+
     showSuccessAlert("Categoría eliminada");
+
+    // 2. Limpiar la selección actual y los conceptos dependientes
     form.value.categoryId = "";
+    form.value.conceptId = "";
     concepts.value = [];
-    await reloadCategories();
-  } catch {
+
+    // 3. RECARGAR usando .value (Aquí estaba el error)
+    await reloadCategories(form.value.accountId);
+
+  } catch (error) {
     showErrorAlert("Error al eliminar categoría");
+    console.error(error);
   } finally {
     deletingCategory.value = false;
     confirmDeleteCategoryDialog.value = false;
@@ -335,6 +428,7 @@ const save = async () => {
     description: true,
     quantity: true,
     amount: true,
+    measurement: true,
     operationDate: true
   };
 
@@ -349,7 +443,7 @@ const save = async () => {
       description: form.value.description,
       amount: Number(form.value.amount),
       quantity: Number(form.value.quantity),
-      // backend swagger pide operationDate tipo datetime; mandamos FECHA con hora 00:00:00
+      measurement: form.value.measurement,
       operationDate: `${form.value.operationDate}T00:00:00`
     };
 
@@ -422,16 +516,17 @@ const save = async () => {
 
         <div class="row">
           <v-select v-model="form.categoryId" label="Categoría *" :items="categories" item-title="name" item-value="id"
-            :loading="loadingCategories" :rules="categoryRules" @blur="touched.categoryId = true" class="flex-1" />
+            :loading="loadingCategories" :rules="categoryRules" :disabled="!form.accountId" class="flex-1" />
 
-          <v-btn icon variant="text" @click="newCategory" aria-label="Agregar categoría">
+
+          <v-btn icon variant="text" :disabled="!form.accountId" @click="newCategory" aria-label="Agregar categoría">
             <v-icon>mdi-plus</v-icon>
           </v-btn>
 
           <v-menu location="bottom end">
             <template #activator="{ props: menuProps }">
-              <v-btn icon variant="text" v-bind="menuProps" :disabled="!form.categoryId" @click="openMenu"
-                aria-label="Más acciones categoría">
+              <v-btn icon variant="text" v-bind="menuProps" :disabled="!form.accountId || !form.categoryId"
+                @click="openMenu">
                 <v-icon>mdi-dots-vertical</v-icon>
               </v-btn>
             </template>
@@ -488,10 +583,19 @@ const save = async () => {
 
         <v-text-field label="Comentarios *" v-model="form.description" :rules="descriptionRules"
           @blur="touched.description = true" />
-        <v-text-field type="number" label="Cantidad *" v-model.number="form.quantity" :rules="quantityRules"
-          @blur="touched.quantity = true" />
+
+        <div class="row">
+          <v-text-field type="number" label="Cantidad *" v-model.number="form.quantity" :rules="quantityRules"
+            @blur="touched.quantity = true" class="flex-1" />
+
+          <v-select label="Unidad de Medida *" v-model="form.measurement" :items="unitsOfMeasure" item-title="title"
+            item-value="value" :rules="unitRules" @blur="touched.measurement = true" class="flex-1" />
+        </div>
+
         <v-text-field type="number" label="Monto *" v-model.number="form.amount" :rules="amountRules"
           @blur="touched.amount = true" />
+
+       
         <v-text-field type="date" label="Fecha *" v-model="form.operationDate" :rules="dateRules"
           @blur="touched.operationDate = true" />
       </v-card-text>
@@ -507,8 +611,8 @@ const save = async () => {
   </v-dialog>
 
   <CreateEditLedgerAccountDialog v-model="showAccountDialog" :account="editingAccount" @refresh="reloadAccounts" />
-  <CreateEditConceptCategoryDialog v-model="showCategoryDialog" :category="editingCategory"
-    @refresh="reloadCategories" />
+  <CreateEditConceptCategoryDialog v-model="showCategoryDialog" :category="editingCategory" :accountId="form.accountId"
+    @refresh="onCategorySaved" />
   <CreateEditConceptDialog v-model="showConceptDialog" :concept="editingConcept" :categoryId="form.categoryId"
     @refresh="reloadConcepts" />
 
@@ -533,6 +637,7 @@ const save = async () => {
 
 .flex-1 {
   flex: 1;
-  min-width: 0; /* importante para que no rompa */
+  min-width: 0;
+  /* importante para que no rompa */
 }
 </style>

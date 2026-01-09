@@ -13,6 +13,17 @@ export default class HttpService {
     }
   }
 
+
+  async getget(path: string, config: AxiosRequestConfig = {}) {
+  try {
+    const response = await axios.get(path, config);
+    return response;
+  } catch (error: any) {
+    throw error;
+  }
+}
+
+
   async post(path: string, payload: { [key: string]: any }) {
     try {
       const response = await axios.post(`${path}`, payload);

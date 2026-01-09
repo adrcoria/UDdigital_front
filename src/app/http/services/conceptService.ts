@@ -5,7 +5,7 @@ const http = new HttpService();
 export default class ConceptService {
   private basePath = "/concept";
 
-   async getConcepts(idConceptCategory?: string) {
+  async getConcepts(idConceptCategory?: string) {
     if (idConceptCategory) {
       return http.get(`${this.basePath}?idConceptCategory=${idConceptCategory}`);
     }

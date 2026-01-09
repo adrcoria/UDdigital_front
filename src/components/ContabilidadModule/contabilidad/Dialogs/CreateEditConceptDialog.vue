@@ -24,20 +24,31 @@ const form = ref({
 
 const loading = ref(false);
 
+/**
+ * Lógica de limpieza/carga refactorizada:
+ * Se dispara cada vez que el diálogo cambia de estado (se abre o se cierra).
+ */
 watch(
-  () => props.concept,
-  c => {
-    if (c) {
-      form.value = {
-        name: c.name,
-        description: c.description,
-        type: c.polarity === 1 ? "ingreso" : "gasto",
-      };
-    } else {
-      form.value = { name: "", description: "", type: "gasto" };
+  () => props.modelValue,
+  (isOpen) => {
+    if (isOpen) {
+      if (props.concept) {
+        // MODO EDICIÓN
+        form.value = {
+          name: props.concept.name,
+          description: props.concept.description,
+          type: props.concept.polarity === 1 ? "ingreso" : "gasto",
+        };
+      } else {
+        // MODO NUEVO (Limpieza total)
+        form.value = { 
+          name: "", 
+          description: "", 
+          type: "gasto" 
+        };
+      }
     }
-  },
-  { immediate: true }
+  }
 );
 
 const save = async () => {

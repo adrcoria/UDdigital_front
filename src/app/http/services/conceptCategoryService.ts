@@ -6,14 +6,24 @@ export default class ConceptCategoryService {
   private basePath = "/concept-category";
 
   // GET /concept-category
-  async getConceptCategories() {
-    return http.get(`${this.basePath}`);
+  // async getConceptCategories() {
+  //   return http.get(`${this.basePath}`);
+  // }
+
+
+  async getConceptCategories(idAccount?: string) {
+    if (idAccount) {
+      return http.get(`${this.basePath}?accountId=${idAccount}`);
+    }
+    return http.get(this.basePath);
   }
+
 
   // POST /concept-category
   async createConceptCategory(payload: {
     name: string;
-    description?: string | null;
+    description?: string | null
+    accountId: string;
   }) {
     return http.post(`${this.basePath}`, payload);
   }
