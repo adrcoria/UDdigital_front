@@ -94,8 +94,8 @@ const page = computed({
     class="d-flex justify-space-between align-center"
   >
     <div class="text-muted">
-      Showing <b>{{ tableConfig.end }}</b> of
-      <b>{{ tableConfig.noOfItems }}</b> Results
+      Mostrando <b>{{ tableConfig.end }}</b> de
+      <b>{{ tableConfig.noOfItems }}</b> resultados
     </div>
     <v-pagination
       v-model="page"

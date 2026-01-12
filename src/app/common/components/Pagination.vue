@@ -31,7 +31,7 @@ const page = computed({
 <template>
   <div class="d-flex justify-space-between align-center mt-4">
     <div class="text-muted">
-      Showing <b>{{ config.current }}</b> of <b>{{ config.total }}</b> Results
+      Mostrando <b>{{ config.current }}</b> de <b>{{ config.total }}</b> Results
     </div>
     <v-pagination
       v-model="page"

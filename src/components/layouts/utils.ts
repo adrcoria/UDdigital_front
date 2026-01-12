@@ -22,6 +22,14 @@ const tecnico = "506a9d23-c308-47dc-b132-80c68cd28cd1";
 
 export const menuItems: MenuItemType[] = [
   {
+    label: "Inicio",
+    icon: "ph-house",
+    id: "sidebarAdmin",
+    roles: [], // visible para todos
+    link: "/"
+
+  },
+  {
     label: "Administración",
     icon: "ph-gear",
     id: "sidebarAdmin",

@@ -102,7 +102,26 @@ const formatDate = (value: string | Date) => {
 
 /* ------------------ State ------------------ */
 const operations = ref<any[]>([]);
-const tableData = ref<any[]>([]);
+// const tableData = ref<any[]>([]);
+const tableData = computed(() => {
+  const query = props.filters.query?.toLowerCase().trim();
+
+  if (!query) {
+    return operations.value;
+  }
+
+  return operations.value.filter((item) => {
+    // Aquí defines en qué columnas quieres buscar
+    return (
+      item.accountName?.toLowerCase().includes(query) ||
+      item.categoryName?.toLowerCase().includes(query) ||
+      item.conceptName?.toLowerCase().includes(query) ||
+      item.description?.toLowerCase().includes(query) ||
+      item.amount?.toString().includes(query)
+    );
+  });
+});
+
 const loading = ref(false);
 const deleting = ref(false);
 const page = ref(1);
@@ -356,7 +375,7 @@ const getOperations = async () => {
     });
 
     // 🔥 IMPORTANTE
-    tableData.value = operations.value;
+    //tableData.value = operations.value;
 
     config.value = {
       ...config.value,
@@ -378,6 +397,8 @@ const openFilesDialog = async (item: any) => {
   filesDialog.value = true;
   await loadOperationFiles();
 };
+
+
 
 
 const loadOperationFiles = async () => {
@@ -520,6 +541,14 @@ watch(page, () => {
   getOperations();
 });
 
+watch(
+  () => config.value.itemsPerPage,
+  () => {
+    page.value = 1;
+    getOperations();
+  }
+);
+
 /* ------------------ Actions ------------------ */
 const onCreate = () => {
   selectedOperation.value = null;
@@ -589,7 +618,7 @@ const confirmDelete = async () => {
             Exportar operaciones
           </v-btn>
           <v-btn v-if="canManageAll()" variant="outlined" color="success" prepend-icon="ph-file-xls"
-            :loading="exporting" @click="onExport">
+            :loading="exporting" @click="onExportSummary">
             Exportar resumen de operaciones
           </v-btn>
         </v-col>
@@ -662,6 +691,10 @@ const confirmDelete = async () => {
           </tr>
         </template>
       </Table>
+      <div style="width: 100px;">
+        <v-select label="Ver" :items="[10, 25, 50]" v-model="config.itemsPerPage" variant="underlined" density="compact"
+          hide-details />
+      </div>
     </v-card-text>
   </v-card>
 
@@ -716,8 +749,8 @@ const confirmDelete = async () => {
                     Ver
                   </v-btn>
 
-                  <v-btn v-if="canDeleteItem(selectedForFiles?.operationDate)" variant="text" size="small" color="error" :loading="filesDeleting" :disabled="filesDeleting"
-                    @click="deleteFile(f)">
+                  <v-btn v-if="canDeleteItem(selectedForFiles?.operationDate)" variant="text" size="small" color="error"
+                    :loading="filesDeleting" :disabled="filesDeleting" @click="deleteFile(f)">
                     Eliminar
                   </v-btn>
                 </v-card-actions>
