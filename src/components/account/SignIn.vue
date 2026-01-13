@@ -190,6 +190,7 @@ onMounted(() => {
               Versión 1.0.0              
             </span>
           </v-col>
+        </v-row>
       </v-card-text>
     </div>
   </div>
