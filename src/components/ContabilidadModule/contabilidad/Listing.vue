@@ -17,6 +17,14 @@ import {
   companyService, // ajusta el nombre real
 } from "@/app/http/httpServiceProvider";
 
+const getStoredUser = () => {
+  return (
+    localStorage.getItem("user") ||
+    sessionStorage.getItem("user")
+  );
+};
+
+
 
 /* ------------------ Props ------------------ */
 const props = defineProps<{

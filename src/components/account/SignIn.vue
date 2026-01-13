@@ -61,6 +61,10 @@ const onSignIn = async () => {
         return;
       }
       const { accessToken, refreshToken, user, accesTokenExpiresIn, refreshTokenExpiresIn } = response.data.data;
+      if (!user || !user.role || !user.role.id) {
+        showErrorAlert("Tu usuario no tiene un rol asignado. Contacta al administrador.");
+        return;
+      }
       if (isRemember.value) {
         localStorage.setItem("accessToken", accessToken);
         localStorage.setItem("accesTokenExpiresIn", accesTokenExpiresIn);
@@ -187,7 +191,7 @@ onMounted(() => {
         <v-row justify="center" class="mt-4">
           <v-col cols="12" lg="8" class="text-center">
             <span class="text-muted">
-              Versión 1.0.0              
+              Versión 1.0.0
             </span>
           </v-col>
         </v-row>
