@@ -184,6 +184,12 @@ onMounted(() => {
             </v-form>
           </v-col>
         </v-row>
+        <v-row justify="center" class="mt-4">
+          <v-col cols="12" lg="8" class="text-center">
+            <span class="text-muted">
+              Versión 1.0.0              
+            </span>
+          </v-col>
       </v-card-text>
     </div>
   </div>
