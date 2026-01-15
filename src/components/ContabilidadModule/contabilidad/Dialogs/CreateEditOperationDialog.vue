@@ -35,7 +35,7 @@ const form = ref({
   accountId: "",
   categoryId: "",
   conceptId: "",
-  measurement : "",
+  measurement: "",
   description: "",
   quantity: 1,
   amount: 0,
@@ -483,8 +483,9 @@ const save = async () => {
 
       <v-card-text>
         <div class="row">
-          <v-select v-model="form.accountId" label="Cuenta *" :items="accounts" item-title="name" item-value="id"
-            :loading="loadingAccounts" :rules="accountRules" @blur="touched.accountId = true" class="flex-1" />
+          <v-autocomplete v-model="form.accountId" label="Cuenta *" :items="accounts" item-title="name" item-value="id"
+            :loading="loadingAccounts" :rules="accountRules" @blur="touched.accountId = true" class="flex-1" clearable
+            auto-select-first />
 
           <!-- Acción principal -->
           <v-btn icon variant="text" @click="newAccount" aria-label="Agregar cuenta">
@@ -515,8 +516,9 @@ const save = async () => {
         </div>
 
         <div class="row">
-          <v-select v-model="form.categoryId" label="Categoría *" :items="categories" item-title="name" item-value="id"
-            :loading="loadingCategories" :rules="categoryRules" :disabled="!form.accountId" class="flex-1" />
+          <v-autocomplete v-model="form.categoryId" label="Categoría *" :items="categories" item-title="name"
+            item-value="id" :loading="loadingCategories" :rules="categoryRules" :disabled="!form.accountId"
+            class="flex-1" clearable auto-select-first />
 
 
           <v-btn icon variant="text" :disabled="!form.accountId" @click="newCategory" aria-label="Agregar categoría">
@@ -546,9 +548,9 @@ const save = async () => {
         </div>
 
         <div class="row">
-          <v-select v-model="form.conceptId" label="Concepto *" :items="concepts" item-title="name" item-value="id"
-            :disabled="!form.categoryId" :loading="loadingConcepts" :rules="conceptRules"
-            @blur="touched.conceptId = true" class="flex-1" />
+          <v-autocomplete v-model="form.conceptId" label="Concepto *" :items="concepts" item-title="name"
+            item-value="id" :disabled="!form.categoryId" :loading="loadingConcepts" :rules="conceptRules"
+            @blur="touched.conceptId = true" class="flex-1" clearable auto-select-first />
 
           <v-btn icon variant="text" :disabled="!form.categoryId" @click="newConcept" aria-label="Agregar concepto">
             <v-icon>mdi-plus</v-icon>
@@ -595,7 +597,7 @@ const save = async () => {
         <v-text-field type="number" label="Monto *" v-model.number="form.amount" :rules="amountRules"
           @blur="touched.amount = true" />
 
-       
+
         <v-text-field type="date" label="Fecha *" v-model="form.operationDate" :rules="dateRules"
           @blur="touched.operationDate = true" />
       </v-card-text>
