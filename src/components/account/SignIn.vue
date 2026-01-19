@@ -183,7 +183,7 @@ onMounted(() => {
         <v-row justify="center" class="mt-4">
           <v-col cols="12" lg="8" class="text-center">
             <span class="text-muted">
-              Versión 1.0.0
+              Versión 1.1.0
             </span>
           </v-col>
         </v-row>
