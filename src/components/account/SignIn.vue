@@ -34,14 +34,11 @@ const companyCodeRules = [
 
 const SECRET_KEY = "UGDigital2025$$";
 
+
 const onSignIn = async () => {
   isSubmitted.value = true;
   const { valid } = await formRef?.value?.validate();
-
-  if (!valid) {
-    errorMsg.value = "Los datos capturados no son correctos";
-    return;
-  }
+  if (!valid) return;
 
   try {
     loading.value = true;
@@ -52,58 +49,53 @@ const onSignIn = async () => {
       mail: formData.value.mail.value,
       password: formData.value.password.value,
     };
+    
     const response = await accountService.login(payload);
+    const { data } = response.data;
 
     if ([200, 201].includes(response.data.statusCode)) {
-      if (response.data.data.isRequiredChangePassword) {
-        showSuccessAlert("Por tu seguridad, debes cambiar tu contraseña");
+      if (data.isRequiredChangePassword) {
         router.push({ path: `/pass-reset/${payload.mail}` });
         return;
       }
-      const { accessToken, refreshToken, user, accesTokenExpiresIn, refreshTokenExpiresIn } = response.data.data;
-      if (!user || !user.role || !user.role.id) {
-        showErrorAlert("Tu usuario no tiene un rol asignado. Contacta al administrador.");
-        return;
-      }
+
+      const { accessToken, refreshToken, user } = data;
+
+      // 1. Limpieza Preventiva: Borramos todo antes de setear lo nuevo
+      // Esto evita que queden residuos de usuarios anteriores
+      localStorage.clear(); 
+      sessionStorage.clear();
+
+      // 2. Definir el storage destino
+      const storage = isRemember.value ? localStorage : sessionStorage;
+
+      // 3. Guardar sesión técnica
+      storage.setItem("accessToken", accessToken);
+      storage.setItem("user", JSON.stringify(user));
+      storage.setItem("refreshToken", refreshToken);
+
+      // 4. Lógica de "Recordarme" (Credenciales)
       if (isRemember.value) {
-        localStorage.setItem("accessToken", accessToken);
-        localStorage.setItem("accesTokenExpiresIn", accesTokenExpiresIn);
-        localStorage.setItem("user", JSON.stringify(user));
-        localStorage.setItem("refreshToken", refreshToken);
-        localStorage.setItem("refreshTokenExpiresIn", refreshTokenExpiresIn);
-        const encryptedMail = CryptoJS.AES.encrypt(formData.value.mail.value, SECRET_KEY).toString();
-        const encryptedPassword = CryptoJS.AES.encrypt(formData.value.password.value, SECRET_KEY).toString();
-        const encryptedCompanyCode = CryptoJS.AES.encrypt(
-          formData.value.companyCode.value,
-          SECRET_KEY
-        ).toString();
+        const encryptedMail = CryptoJS.AES.encrypt(payload.mail, SECRET_KEY).toString();
+        const encryptedPass = CryptoJS.AES.encrypt(payload.password, SECRET_KEY).toString();
+        const encryptedCode = CryptoJS.AES.encrypt(payload.companyCode, SECRET_KEY).toString();
+
         localStorage.setItem("mail", encryptedMail);
-        localStorage.setItem("password", encryptedPassword);
-        localStorage.setItem("companyCode", encryptedCompanyCode);
-      } else {
-        sessionStorage.setItem("accessToken", accessToken);
-        sessionStorage.setItem("accesTokenExpiresIn", accesTokenExpiresIn);
-        sessionStorage.setItem("user", JSON.stringify(user));
-        sessionStorage.setItem("refreshToken", refreshToken);
-        sessionStorage.setItem("refreshTokenExpiresIn", refreshTokenExpiresIn);
-        localStorage.removeItem("mail");
-        localStorage.removeItem("password");
-        localStorage.removeItem("companyCode");
+        localStorage.setItem("password", encryptedPass);
+        localStorage.setItem("companyCode", encryptedCode);
       }
+
+      showSuccessAlert(`¡Bienvenido, ${user.name}!`);
       router.push({ path: "/" });
-    } else {
-      errorMsg.value = "Credenciales de acceso incorrectas";
     }
   } catch (error: any) {
-    if (error.status === 401) {
-      errorMsg.value = "Credenciales de acceso incorrectas";
-      return;
-    }
-    errorMsg.value = error.message;
+    errorMsg.value = error.status === 401 ? "Credenciales incorrectas" : error.message;
   } finally {
     loading.value = false;
   }
 };
+
+
 
 onMounted(() => {
   const encryptedMail = localStorage.getItem("mail");

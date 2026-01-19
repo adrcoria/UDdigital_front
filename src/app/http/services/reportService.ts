@@ -10,9 +10,9 @@ export default class ReportService {
     endDate?: string;
   }) {
     // Es fundamental el responseType: 'blob' para archivos binarios
-    return http.getget(`${this.basePath}/operations/excel`, { 
-      params, 
-      responseType: 'blob' 
+    return http.getget(`${this.basePath}/operations/excel`, {
+      params,
+      responseType: 'blob'
     });
   }
   async exportOperationsExcelSummary(params: {
@@ -20,9 +20,19 @@ export default class ReportService {
     endDate?: string;
   }) {
     // Es fundamental el responseType: 'blob' para archivos binarios
-    return http.getget(`${this.basePath}/summary/excel`, { 
-      params, 
-      responseType: 'blob' 
+    return http.getget(`${this.basePath}/summary/excel`, {
+      params,
+      responseType: 'blob'
+    });
+  }
+  async exportOperationsAllExcelSummary(params: {
+    startDate?: string;
+    endDate?: string;
+  }) {
+    // Es fundamental el responseType: 'blob' para archivos binarios
+    return http.getget(`${this.basePath}/all-summary/excel`, {
+      params,
+      responseType: 'blob'
     });
   }
 }

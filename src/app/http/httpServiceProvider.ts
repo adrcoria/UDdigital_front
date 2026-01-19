@@ -11,11 +11,15 @@ import VerifyService from "./services/verifyService";
 import OperationImageService from "./services/operationImageService";
 import CompanyService from "./services/companyService";
 import ReportService from "./services/reportService";
+import UsuariosService from "./services/usuariosService";
+import RoleService from "./services/roleService"; 
+const roleService = new RoleService();
 const ledgerAccountService = new LedgerAccountService();
 const userService = new UserService();
 const suscriptionService = new SuscriptionService();
 const operationsService = new OperationsService();
 const reportService = new ReportService();
+const usuariosService = new UsuariosService();
 
 const conceptService = new ConceptService();
 const conceptCategoryService = new ConceptCategoryService();
@@ -39,5 +43,7 @@ export {
   conceptCategoryService,
   reportService,
   fileService,
-  fakeBackendService
+  fakeBackendService,
+  usuariosService,
+  roleService
 };

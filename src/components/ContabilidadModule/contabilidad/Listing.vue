@@ -297,6 +297,42 @@ const onExportSummary = async () => {
     exporting.value = false;
   }
 };
+const onExportSummaryAll = async () => {
+  try {
+    exporting.value = true;
+
+    // Reutilizamos los mismos parámetros que usas en getOperations
+    const params = {
+      startDate: filtersForm.value.dateFrom || undefined,
+      endDate: filtersForm.value.dateTo || undefined,
+    };
+
+    const res = await reportService.exportOperationsAllExcelSummary(params);
+
+    // Crear un link temporal para descargar el archivo
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement("a");
+    link.href = url;
+
+    // Nombre del archivo con la fecha actual
+    const fileName = `reporte_operaciones_general_${new Date().toISOString().split('T')[0]}.xlsx`;
+    link.setAttribute("download", fileName);
+
+    document.body.appendChild(link);
+    link.click();
+
+    // Limpieza
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
+    showSuccessAlert("Excel generado correctamente");
+  } catch (error) {
+    console.error("Export error:", error);
+    showErrorAlert("No se pudo exportar el archivo");
+  } finally {
+    exporting.value = false;
+  }
+};
 
 
 /* ------------------ Data ------------------ */
@@ -616,19 +652,34 @@ const confirmDelete = async () => {
         <v-spacer></v-spacer>
 
         <v-col cols="12" sm="auto" class="d-flex ga-2 justify-sm-end mt-2 mt-sm-0">
-
-
-          <v-btn color="primary" @click="onCreate">
+          <v-btn color="primary" prepend-icon="ph-plus" @click="onCreate">
             Registrar operación
           </v-btn>
-          <v-btn v-if="canManageAll()" variant="outlined" color="success" prepend-icon="ph-file-xls"
-            :loading="exporting" @click="onExport">
-            Exportar operaciones
-          </v-btn>
-          <v-btn v-if="canManageAll()" variant="outlined" color="success" prepend-icon="ph-file-xls"
-            :loading="exporting" @click="onExportSummary">
-            Exportar resumen de operaciones
-          </v-btn>
+
+          <v-menu v-if="canManageAll()" location="bottom end" transition="slide-y-transition">
+            <template v-slot:activator="{ props }">
+              <v-btn variant="outlined" color="success" prepend-icon="ph-file-xls" append-icon="ph-caret-down"
+                :loading="exporting" v-bind="props">
+                Exportar
+              </v-btn>
+            </template>
+
+            <v-list density="comfortable" elevation="4">
+              <v-list-item @click="onExport" prepend-icon="ph-list-bullets">
+                <v-list-item-title>Detalle de operaciones</v-list-item-title>
+              </v-list-item>
+
+              <v-list-item @click="onExportSummary" prepend-icon="ph-chart-pie">
+                <v-list-item-title>Resumen de operaciones</v-list-item-title>
+              </v-list-item>
+
+              <v-divider></v-divider>
+
+              <v-list-item @click="onExportSummaryAll" prepend-icon="ph-files" color="success">
+                <v-list-item-title ">Reporte consolidado</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-menu>
         </v-col>
       </v-row>
     </v-card-title>

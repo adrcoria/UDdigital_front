@@ -4,6 +4,13 @@ import {
   CartItemType,
   NotificationType
 } from "@/components/layouts/types";
+
+// Importamos el objeto ROLES para usar los UUIDs originales
+import { ROLES,getUserRole  } from "@/app/utils/authHelper";
+console.log("ROL ACTUAL:", getUserRole());
+console.log("ROL SUPER:", ROLES.SUPER_USER);
+
+// Imágenes de marcas y assets (mantenemos tus imports actuales)
 import {
   gitHub,
   bitBucket,
@@ -15,35 +22,57 @@ import {
 import { Img1, Img5, Img10 } from "@/assets/images/products/utils";
 import { Avatar2, Avatar8 } from "@/assets/images/users/utils";
 
-const superUser = "44d66fc5-797f-4610-9ce0-13c32c8877c1";
-const admin = "87557cc4-333c-4486-ab8e-d9b0dde000d1";
-const operativo = "049d1192-be01-418c-b3f1-44020f39ab2d";
-const tecnico = "506a9d23-c308-47dc-b132-80c68cd28cd1";
-
+/* ======================================================
+ * CONFIGURACIÓN DEL MENÚ POR ROLES
+ * ====================================================== */
 export const menuItems: MenuItemType[] = [
   {
     label: "Inicio",
     icon: "ph-house",
-    id: "sidebarAdmin",
-    roles: [], // visible para todos
+    id: "sidebarHome",
+    roles: [], // Visible para todos
     link: "/"
-
+  },
+  {
+    label: "Configuraciones",
+    icon: "ph-gear",
+    id: "sidebarConfig",
+    // Solo Super Usuario y Admin
+    roles: [ROLES.SUPER_USER, ROLES.ADMIN],
+    subMenu: [
+      {
+        label: "Usuarios",
+        link: "/configuraciones/usuarios",
+        // Super Usuario y Admin
+        roles: [ROLES.SUPER_USER, ROLES.ADMIN]
+      },
+      {
+        label: "Empresas",
+        link: "/configuraciones/empresas",
+        // SOLO Super Usuario
+        roles: [ROLES.SUPER_USER]
+      }
+    ]
   },
   {
     label: "Administración",
-    icon: "ph-gear",
+    icon: "ph-chart-line-up",
     id: "sidebarAdmin",
-    roles: [], // visible para todos
+    // Visible para los tres roles
+    roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA],
     subMenu: [
       {
         label: "Ingresos y egresos",
         link: "/administracion/ingresos-egresos",
-        roles: []
+        roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
       }
     ]
   }
 ];
 
+/* ======================================================
+ * RESTO DE CONFIGURACIONES (Brands, Cart, Notifications)
+ * ====================================================== */
 export const brandsList: BrandsListType[] = [
   { src: gitHub, title: "GitHub" },
   { src: bitBucket, title: "Bitbucket" },

@@ -54,14 +54,24 @@ const pagesRoutes = [
 /* ======================================================
  * CONFIGURACIÓN
  * ====================================================== */
-const usersRoutes = [
+const configRoutes = [
   {
-    path: "/configuracion/usuarios",
+    path: "/configuraciones/usuarios", 
     name: "Usuarios",
-    component: () => import("@/views/usersModule/Usuarios.vue"),
+    component: () => import("@/views/usuarios/Usuarios.vue"),
     meta: {
       title: "Usuarios",
-      authRequired: false,
+      authRequired: true, // Cambiado a true si requiere login
+      layout: DefaultLayout
+    }
+  },
+  {
+    path: "/configuraciones/empresas", 
+    name: "Empresas",
+    component: () => import("@/views/empresas/Empresas.vue"),
+    meta: {
+      title: "Empresas",
+      authRequired: true,
       layout: DefaultLayout
     }
   }
@@ -88,6 +98,6 @@ const adminRoutes = [
 export const routes = [
   ...accountRoutes,
   ...pagesRoutes,
-  ...usersRoutes,
+  ...configRoutes,
   ...adminRoutes
 ];
