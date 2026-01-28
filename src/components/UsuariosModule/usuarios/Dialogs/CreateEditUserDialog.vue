@@ -37,14 +37,10 @@ const touched = ref({
 /* ---------- Utilidades ---------- */
 const formatPhone = (val: string) => {
   if (!val) return "";
-  // Solo permitir números
-  const numbers = val.replace(/\D/g, "");
-  // Limitar a 10 dígitos
-  const truncated = numbers.slice(0, 10);
-  
-  if (truncated.length <= 3) return truncated;
-  if (truncated.length <= 6) return `(${truncated.slice(0, 3)}) ${truncated.slice(3)}`;
-  return `(${truncated.slice(0, 3)}) ${truncated.slice(3, 6)}-${truncated.slice(6, 10)}`;
+  const numbers = val.replace(/\D/g, "").slice(0, 10);
+  if (numbers.length <= 3) return numbers;
+  if (numbers.length <= 6) return `(${numbers.slice(0, 3)}) ${numbers.slice(3)}`;
+  return `(${numbers.slice(0, 3)}) ${numbers.slice(3, 6)}-${numbers.slice(6, 10)}`;
 };
 
 const resetForm = () => {
@@ -87,13 +83,15 @@ const loadOptions = async () => {
   }
 };
 
-/* ---------- Guardar State ---------- */
-const loading = ref(false);
 const isEdit = computed(() => !!props.user?.id);
+const loading = ref(false);
 
 /* ---------- Validaciones ---------- */
 const req = (v: any) => !!v || "Obligatorio";
-const emailRule = (v: string) => /.+@.+\..+/.test(v) || "Formato de usuario (correo) no válido";
+// ✅ Validamos que sea correo SOLO si quieres forzar ese formato. 
+// Si no, podemos dejar solo 'req'. He dejado una Regex más flexible.
+const emailRule = (v: string) => (v && v.length > 2) || "Usuario demasiado corto"; 
+
 const minPass = (v: string) => (v && v.length >= 6) || "Mínimo 6 caracteres";
 const phoneRule = (v: string) => {
   const digits = (v || "").replace(/\D/g, "");
@@ -103,7 +101,7 @@ const matchRule = (v: string) => v === form.value.password || "Las contraseñas 
 
 const nameRules = computed(() => touched.value.name ? [req] : []);
 const lastNameRules = computed(() => touched.value.lastName ? [req] : []);
-const mailRules = computed(() => touched.value.mail ? [req] : []);
+const mailRules = computed(() => touched.value.mail ? [req, emailRule] : []);
 const phoneRules = computed(() => touched.value.phone ? [req, phoneRule] : []);
 const roleRules = computed(() => touched.value.roleId ? [req] : []);
 const companyRules = computed(() => touched.value.companyId ? [req] : []);
@@ -119,24 +117,30 @@ const confirmRules = computed(() => {
   return [req, matchRule];
 });
 
+// ✅ CORRECCIÓN DE LA LÓGICA DEL BOTÓN
 const isFormValid = computed(() => {
-  const digits = form.value.phone.replace(/\D/g, "");
-  const basic = !!form.value.name.trim() && 
-                !!form.value.lastName.trim() && 
-                !!form.value.mail.trim() && 
-                !!form.value.roleId && 
-                !!form.value.companyId && 
-                /.+@.+\..+/.test(form.value.mail) &&
-                digits.length === 10;
+  const digits = (form.value.phone || "").replace(/\D/g, "");
   
+  // Validaciones básicas de campos obligatorios
+  const hasBasicInfo = !!form.value.name?.trim() && 
+                       !!form.value.lastName?.trim() && 
+                       !!form.value.mail?.trim() && 
+                       !!form.value.roleId && 
+                       !!form.value.companyId && 
+                       digits.length === 10;
+
   const passwordsMatch = form.value.password === form.value.confirmPassword;
 
   if (isEdit.value) {
-    if (form.value.password) return basic && passwordsMatch && form.value.password.length >= 6;
-    return basic;
+    // En edición: si escriben algo en password, debe ser válido y coincidir
+    if (form.value.password) {
+      return hasBasicInfo && passwordsMatch && form.value.password.length >= 6;
+    }
+    return hasBasicInfo;
   }
   
-  return basic && !!form.value.password && form.value.password.length >= 6 && passwordsMatch;
+  // En creación: password es obligatorio, min 6 caracteres y debe coincidir
+  return hasBasicInfo && !!form.value.password && form.value.password.length >= 6 && passwordsMatch;
 });
 
 /* ---------- Watchers ---------- */
@@ -165,20 +169,16 @@ const save = async () => {
 
   try {
     loading.value = true;
-    
-    // Limpieza de datos (Trimming y extraer solo números del teléfono)
     const payload: any = {
       name: form.value.name.trim(),
       lastName: form.value.lastName.trim(),
-      mail: form.value.mail.trim().toLowerCase(),
+      mail: form.value.mail.trim(),
       phone: form.value.phone.replace(/\D/g, ""),
       roleId: form.value.roleId,
       companyId: form.value.companyId,
     };
     
-    if (form.value.password) {
-        payload.password = form.value.password;
-    }
+    if (form.value.password) payload.password = form.value.password;
 
     if (isEdit.value) {
       await usuariosService.updateUser(props.user.id, payload);
@@ -202,18 +202,20 @@ const save = async () => {
 <template>
   <v-dialog v-model="dialog" max-width="650px" persistent>
     <v-card>
-      <v-card-title class="pa-4">{{ isEdit ? "Editar usuario" : "Registrar usuario" }}</v-card-title>
+      <v-card-title class="pa-4 font-weight-bold">
+        {{ isEdit ? "Editar usuario" : "Registrar usuario" }}
+      </v-card-title>
 
       <v-card-text>
         <div class="row">
           <v-text-field v-model="form.name" label="Nombre(s) *" :rules="nameRules" 
-            @blur="touched.name = true" class="flex-1" />
+            @blur="touched.name = true" class="flex-1" variant="filled" />
           <v-text-field v-model="form.lastName" label="Apellidos *" :rules="lastNameRules" 
-            @blur="touched.lastName = true" class="flex-1" />
+            @blur="touched.lastName = true" class="flex-1" variant="filled" />
         </div>
 
         <v-text-field v-model="form.mail" label="Usuario *" :rules="mailRules" 
-          @blur="touched.mail = true" :disabled="isEdit" placeholder="Especifica el nombre de usuario" />
+          @blur="touched.mail = true" :disabled="isEdit" variant="filled" />
 
         <div class="row">
           <v-text-field v-model="form.password" :label="isEdit ? 'Nueva contraseña (opcional)' : 'Contraseña *'" 
@@ -223,8 +225,7 @@ const save = async () => {
             :rules="passwordRules" 
             @blur="touched.password = true" 
             autocomplete="new-password"
-            name="pwd_field_hidden"
-            class="flex-1" />
+            variant="filled" class="flex-1" />
           
           <v-text-field v-model="form.confirmPassword" label="Confirmar contraseña *" 
             :type="showPassword ? 'text' : 'password'" 
@@ -233,8 +234,7 @@ const save = async () => {
             :rules="confirmRules" 
             @blur="touched.confirmPassword = true" 
             autocomplete="new-password"
-            name="confirm_pwd_field_hidden"
-            class="flex-1" />
+            variant="filled" class="flex-1" />
         </div>
 
         <div class="row">
@@ -245,23 +245,23 @@ const save = async () => {
             :rules="phoneRules" 
             @blur="touched.phone = true" 
             placeholder="(XXX) XXX-XXXX"
-            class="flex-1" />
+            variant="filled" class="flex-1" />
           
           <v-autocomplete v-model="form.roleId" label="Rol *" :items="filteredRoles" item-title="name" 
             item-value="id" :loading="loadingOptions" :rules="roleRules" 
-            @blur="touched.roleId = true" class="flex-1" clearable />
+            @blur="touched.roleId = true" class="flex-1" clearable variant="filled" />
         </div>
 
         <v-autocomplete v-model="form.companyId" label="Empresa *" :items="companies" item-title="name" 
           item-value="id" :loading="loadingOptions" :rules="companyRules" 
-          @blur="touched.companyId = true" :disabled="!isSuperUser()" clearable />
+          @blur="touched.companyId = true" :disabled="!isSuperUser()" clearable variant="filled" />
           
       </v-card-text>
 
       <v-card-actions class="pa-4">
         <v-spacer />
         <v-btn variant="text" @click="dialog = false">Cancelar</v-btn>
-        <v-btn color="primary" :loading="loading" :disabled="!isFormValid" @click="save" elevation="2">
+        <v-btn color="primary" :loading="loading" :disabled="!isFormValid" @click="save" variant="elevated">
           Guardar
         </v-btn>
       </v-card-actions>
