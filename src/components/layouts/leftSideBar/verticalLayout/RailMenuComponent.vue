@@ -60,7 +60,7 @@ const isActive = (item: MenuItemType) => {
         >
           <v-list-item>
             <span class="rail-menu-title py-0">
-              {{ $t(`t-${menuItem.label}`) }}
+              {{ menuItem.labelKey ? $t(menuItem.labelKey) : menuItem.label }}
             </span>
           </v-list-item>
 
@@ -84,7 +84,7 @@ const isActive = (item: MenuItemType) => {
               >
                 <template #title>
                   <span class="nav-link menu-link py-0">
-                    {{ $t(`t-${subMenu.label}`) }}
+                    {{ subMenu.labelKey ? $t(subMenu.labelKey) : subMenu.label }}
                   </span>
                 </template>
               </v-list-item>
@@ -103,7 +103,7 @@ const isActive = (item: MenuItemType) => {
                   >
                     <template #title>
                       <span class="py-0 ps-4">
-                        {{ $t(`t-${subMenu.label}`) }}
+                        {{ subMenu.labelKey ? $t(subMenu.labelKey) : subMenu.label }}
                       </span>
                     </template>
                   </v-list-item>
@@ -127,12 +127,12 @@ const isActive = (item: MenuItemType) => {
                         nestedItem.link && onClick(nestedItem.link)
                       "
                     >
-                      <template #title>
-                        <span class="py-0">
-                          {{ $t(`t-${nestedItem.label}`) }}
-                        </span>
-                      </template>
-                    </v-list-item>
+                    <template #title>
+                      <span class="py-0">
+                        {{ nestedItem.labelKey ? $t(nestedItem.labelKey) : nestedItem.label }}
+                      </span>
+                    </template>
+                  </v-list-item>
                   </v-list>
                 </div>
               </v-menu>

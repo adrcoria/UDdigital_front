@@ -172,14 +172,14 @@ const isActive = (item: MenuItemType) => {
             >
               <template #title>
                 <span class="nav-link menu-link py-0">
-                  {{ $t(`t-${subMenu.label}`) }}
+                  {{ subMenu.labelKey ? $t(subMenu.labelKey) : subMenu.label }}
                 </span>
               </template>
             </v-list-item>
             <v-list-item v-bind="props" v-if="subMenu.subMenu?.length">
               <template #title>
                 <span class="nav-link menu-link py-0">
-                  {{ $t(`t-${subMenu.label}`) }}
+                  {{ subMenu.labelKey ? $t(subMenu.labelKey) : subMenu.label }}
                 </span>
               </template>
             </v-list-item>
@@ -199,11 +199,11 @@ const isActive = (item: MenuItemType) => {
                 :to="{ path: nestedItem.link }"
               >
                 <span class="nav-link menu-link py-0">
-                  {{ $t(`t-${nestedItem.label}`) }}
+                  {{ nestedItem.labelKey ? $t(nestedItem.labelKey) : nestedItem.label }}
                 </span>
               </router-link>
               <span v-else class="nav-link menu-link py-0">
-                {{ $t(`t-${nestedItem.label}`) }}
+                {{ nestedItem.labelKey ? $t(nestedItem.labelKey) : nestedItem.label }}
               </span>
             </template>
           </v-list-item>

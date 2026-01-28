@@ -8,7 +8,7 @@ import {
 } from "@/assets/images/users/utils";
 </script>
 <template>
-  <v-card color="secondary" class="text-center auth-card">
+  <!-- <v-card color="secondary" class="text-center auth-card">
     <v-card-title class="mt-10">
       <div class="font-weight-bold text-h6">UG - DIGITAL</div>
       <div class="text-caption mt-1 font-weight-regular text-white opacity-75">
@@ -21,16 +21,12 @@ import {
           <div class="effect-circle-2 rounded-circle">
             <div class="effect-circle-3 rounded-circle text-white">
               <span class="text-h6 me-2">BIENVENIDOS</span>
-              <!-- <span class="text-primary text-h6">Alsagro</span> -->
+            
             </div>
           </div>
         </div>
         <div class="auth-user-list">
-          <!-- <v-avatar :image="Avatar1" class="login-avatar" size="50" />
-          <v-avatar :image="Avatar2" class="login-avatar" size="50" />
-          <v-avatar :image="Avatar3" class="login-avatar" size="50" />
-          <v-avatar :image="Avatar4" class="login-avatar" size="50" />
-          <v-avatar :image="Avatar5" class="login-avatar" size="50" /> -->
+         
         </div>
       </div>
     </v-card-text>
@@ -40,5 +36,5 @@ import {
         por  <a href="https://leonix.com.mx" target="_blank" class="text-white text-decoration-none">Leonix</a>
       </p>
     </v-card-actions>
-  </v-card>
+  </v-card> -->
 </template>

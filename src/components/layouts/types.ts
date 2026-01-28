@@ -1,5 +1,6 @@
 export type SubMenuItemType = {
   label: string;
+  labelKey?: string;
   link?: string;
   id?: string;
   prefix?: string;
@@ -9,6 +10,7 @@ export type SubMenuItemType = {
 
 export type MenuItemType = {
   label: string;
+  labelKey?: string;
   link?: string;
   isHeader?: boolean;
   icon?: string;

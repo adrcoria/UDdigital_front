@@ -126,7 +126,7 @@ const isActive = (item: MenuItemType) => {
         >
           <i class="ph ph-lg" :class="menuItem.icon"></i>
           <span class="py-0 ms-2 me-1">
-            {{ $t(`t-${menuItem.label}`) }}
+            {{ menuItem.labelKey ? $t(menuItem.labelKey) : menuItem.label }}
           </span>
           <i v-if="menuItem.subMenu?.length" class="ph ph-sm ph-caret-down"></i>
         </v-btn>
@@ -162,7 +162,7 @@ const isActive = (item: MenuItemType) => {
             >
               <template #title>
                 <span class="py-0">
-                  {{ $t(`t-${subMenu.label}`) }}
+                  {{ subMenu.labelKey ? $t(subMenu.labelKey) : subMenu.label }}
                 </span>
               </template>
             </v-list-item>
@@ -175,7 +175,7 @@ const isActive = (item: MenuItemType) => {
                 >
                   <template #title>
                     <span class="py-0">
-                      {{ $t(`t-${subMenu.label}`) }}
+                      {{ subMenu.labelKey ? $t(subMenu.labelKey) : subMenu.label }}
                     </span>
                   </template>
                 </v-list-item>
@@ -198,7 +198,7 @@ const isActive = (item: MenuItemType) => {
                 >
                   <template #title>
                     <span class="py-0">
-                      {{ $t(`t-${nestedItem.label}`) }}
+                      {{ nestedItem.labelKey ? $t(nestedItem.labelKey) : nestedItem.label }}
                     </span>
                   </template>
                 </v-list-item>

@@ -60,7 +60,7 @@ const onClick = (path: string) => {
             <template #title>
               <span class="nav-link menu-link d-flex align-center">
                 <i :class="menuItem.icon" class="ph-lg me-2"></i>
-                <span>{{ $t(`t-${menuItem.label}`) }}</span>
+                <span>{{ menuItem.labelKey ? $t(menuItem.labelKey) : menuItem.label }}</span>
               </span>
             </template>
           </v-list-item>
@@ -73,7 +73,7 @@ const onClick = (path: string) => {
             <template #title>
               <span class="nav-link menu-link d-flex align-center">
                 <i :class="menuItem.icon" class="ph-lg me-2"></i>
-                <span>{{ $t(`t-${menuItem.label}`) }}</span>
+                <span>{{ menuItem.labelKey ? $t(menuItem.labelKey) : menuItem.label }}</span>
               </span>
             </template>
             <template #append="{ isActive }">
@@ -103,7 +103,7 @@ const onClick = (path: string) => {
             >
               <template #title>
                 <span class="nav-link menu-link py-0">
-                  {{ $t(`t-${subMenu.label}`) }}
+                  {{ subMenu.labelKey ? $t(subMenu.labelKey) : subMenu.label }}
                 </span>
               </template>
               <template #append="{ isActive }">
@@ -128,7 +128,7 @@ const onClick = (path: string) => {
                 :to="{ path: nestedItem.link }"
               >
                 <span class="nav-link menu-link py-0">
-                  {{ $t(`t-${nestedItem.label}`) }}
+                  {{ nestedItem.labelKey ? $t(nestedItem.labelKey) : nestedItem.label }}
                 </span>
               </router-link>
             </template>

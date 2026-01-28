@@ -3,14 +3,16 @@ import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { accountService } from "@/app/http/httpServiceProvider";
 import { showErrorAlert, showSuccessAlert } from "@/app/services/alertService";
-
 import CryptoJS from "crypto-js";
 
+/**
+ * ESTADO Y CONFIGURACIÓN
+ */
 const router = useRouter();
 const SESSION_EXPIRED_FLAG = "sessionExpired";
+const SECRET_KEY = "UGDigital2025$$";
 
 const loading = ref(false);
-const isSubmitted = ref(false);
 const isRemember = ref(false);
 const errorMsg = ref("");
 const formData = ref({
@@ -20,23 +22,14 @@ const formData = ref({
 });
 const formRef = ref(null);
 
-const emailRules = [
-  v => !!v || 'El usuario es requerido'
-];
+const emailRules = [v => !!v || 'El usuario es requerido'];
+const passwordRules = [v => !!v || 'La contraseña es requerida'];
+const companyCodeRules = [v => !!v || 'El código de empresa es requerido'];
 
-const passwordRules = [
-  v => !!v || 'La contraseña es requerida',
-];
-
-const companyCodeRules = [
-  v => !!v || 'El código de empresa es requerido',
-];
-
-const SECRET_KEY = "UGDigital2025$$";
-
-
+/**
+ * LÓGICA DE INICIO DE SESIÓN
+ */
 const onSignIn = async () => {
-  isSubmitted.value = true;
   const { valid } = await formRef?.value?.validate();
   if (!valid) return;
 
@@ -54,33 +47,14 @@ const onSignIn = async () => {
     const { data } = response.data;
 
     if ([200, 201].includes(response.data.statusCode)) {
-      if (data.isRequiredChangePassword) {
-        router.push({ path: `/pass-reset/${payload.mail}` });
-        return;
-      }
-
-      const { accessToken, refreshToken, user } = data;
-
-      // 1. Limpieza Preventiva: Borramos todo antes de setear lo nuevo
-      // Esto evita que queden residuos de usuarios anteriores
       localStorage.clear(); 
       sessionStorage.clear();
 
-      // 2. Definir el storage destino
       const storage = isRemember.value ? localStorage : sessionStorage;
+      storage.setItem("accessToken", data.accessToken);
+      storage.setItem("user", JSON.stringify(data.user));
+      storage.setItem("refreshToken", data.refreshToken);
 
-      // 3. Guardar sesión técnica
-      storage.setItem("accessToken", accessToken);
-      storage.setItem("user", JSON.stringify(user));
-      storage.setItem("refreshToken", refreshToken);
-
-      // 3.1 Limpiar banderas de expiración de sesión
-      sessionStorage.removeItem("sessionExpired");
-      sessionStorage.removeItem("sessionExpiredAlertShown");
-      localStorage.removeItem("sessionExpired");
-      localStorage.removeItem("sessionExpiredAlertShown");
-
-      // 4. Lógica de "Recordarme" (Credenciales)
       if (isRemember.value) {
         const encryptedMail = CryptoJS.AES.encrypt(payload.mail, SECRET_KEY).toString();
         const encryptedPass = CryptoJS.AES.encrypt(payload.password, SECRET_KEY).toString();
@@ -91,113 +65,218 @@ const onSignIn = async () => {
         localStorage.setItem("companyCode", encryptedCode);
       }
 
-      showSuccessAlert(`¡Bienvenido, ${user.name}!`);
+      showSuccessAlert(`¡Bienvenido!`);
       router.push({ path: "/" });
     }
   } catch (error: any) {
-    errorMsg.value = error.status === 401 ? "Credenciales incorrectas" : error.message;
+    errorMsg.value = "Credenciales incorrectas";
   } finally {
     loading.value = false;
   }
 };
-
-
 
 onMounted(() => {
   const encryptedMail = localStorage.getItem("mail");
   const encryptedPassword = localStorage.getItem("password");
   const encryptedCompanyCode = localStorage.getItem("companyCode");
 
-  if (encryptedMail) {
-    formData.value.mail.value = CryptoJS.AES.decrypt(
-      encryptedMail,
-      SECRET_KEY
-    ).toString(CryptoJS.enc.Utf8);
+  if (encryptedMail && encryptedPassword && encryptedCompanyCode) {
+    try {
+      formData.value.mail.value = CryptoJS.AES.decrypt(encryptedMail, SECRET_KEY).toString(CryptoJS.enc.Utf8);
+      formData.value.password.value = CryptoJS.AES.decrypt(encryptedPassword, SECRET_KEY).toString(CryptoJS.enc.Utf8);
+      formData.value.companyCode.value = CryptoJS.AES.decrypt(encryptedCompanyCode, SECRET_KEY).toString(CryptoJS.enc.Utf8);
+      isRemember.value = true;
+    } catch (e) {
+      console.error("Error al restaurar credenciales");
+    }
   }
-
-  if (encryptedPassword) {
-    formData.value.password.value = CryptoJS.AES.decrypt(
-      encryptedPassword,
-      SECRET_KEY
-    ).toString(CryptoJS.enc.Utf8);
-  }
-
-  if (encryptedCompanyCode) {
-    formData.value.companyCode.value = CryptoJS.AES.decrypt(
-      encryptedCompanyCode,
-      SECRET_KEY
-    ).toString(CryptoJS.enc.Utf8);
-  }
-
-  isRemember.value = !!(
-    encryptedMail &&
-    encryptedPassword &&
-    encryptedCompanyCode
-  );
 
   if (sessionStorage.getItem(SESSION_EXPIRED_FLAG) === "true") {
     showErrorAlert();
   }
 });
-
 </script>
+
 <template>
-  <div class="h-100 d-flex align-center justify-center">
-    <div class="w-100">
-      <v-card-title class="text-center">
-        <h5 class="text-h6 font-weight-bold mt-10">¡Hola!</h5>
-        <div class="text-muted font-weight-regular">
-          Captura tus credenciales para iniciar sesión
+  <div class="auth-viewport">
+    <div class="login-grid">
+      
+      <div class="visual-side">
+        <div class="gradient-overlay"></div>
+        <div class="dots-overlay"></div>
+        
+        <div class="text-center z-10 px-6">
+          <h1 class="text-h2 font-weight-bold mb-2 title-shadow">BIENVENIDOS</h1>
+          <p class="text-h5 opacity-70">Plataforma Digital "El Arteaguense"</p>
         </div>
-      </v-card-title>
-      <v-card-text class="mt-5">
-        <v-row justify="center" class="align-center">
-          <v-col cols="12" lg="8">
-            <v-alert v-if="errorMsg" class="mb-3" color="danger" variant="tonal" density="compact">
+
+        <div class="visual-footer">
+          <small>
+            <a href="https://leonix.com.mx" target="_blank" class="text-white text-decoration-none">
+              © 2025. Desarrollado por <b class="brand-green">Leonix</b>
+            </a>
+          </small>
+        </div>
+      </div>
+
+      <div class="form-side">
+        <div class="form-inner">
+          <div class="text-center mb-10">
+            <h2 class="text-h3 font-weight-bold color-primary">¡Hola!</h2>
+            <p class="text-body-1 text-grey-darken-1">Captura tus credenciales para iniciar sesión</p>
+          </div>
+
+          <v-form ref="formRef" @submit.prevent="onSignIn" class="w-100">
+            <v-alert v-if="errorMsg" class="mb-5" type="error" variant="tonal" density="compact">
               {{ errorMsg }}
             </v-alert>
-            <v-form ref="formRef" @submit.prevent="onSignIn">
-              <div class="font-weight-medium mb-1">
-                Captura de email <i class="ph-asterisk ph-xs text-danger" />
-              </div>
-              <v-text-field id="email-field" variant="solo" density="compact" v-model="formData.mail.value"
-                :rules="emailRules" placeholder="Ingresa tu usuario" />
-              <div class="font-weight-medium mb-1">
-                Código de empresa <i class="ph-asterisk ph-xs text-danger" />
-              </div>
 
-              <v-text-field id="company-code-field" variant="solo" density="compact"
-                v-model="formData.companyCode.value" :rules="companyCodeRules"
-                placeholder="Ingresa el código de empresa" />
-              <div class="d-flex justify-space-between align-center mt-4">
-                <div class="font-weight-medium">
-                  Captura tu contraseña <i class="ph-asterisk ph-xs text-danger" />
-                </div>
-                <!-- <v-btn variant="plain" class="px-0 font-weight-regular" to="/pass-reset">
-                  ¿Olvidaste tu contraseña?
-                </v-btn> -->
-              </div>
-              <v-text-field id="password-field" variant="solo" density="compact" v-model="formData.password.value"
-                :rules="passwordRules" placeholder="Ingresa tu contraseña" type="password" />
-              <v-checkbox v-model="isRemember" color="primary" class="my-1">
-                <template #label>
-                  <span>Recordarme</span>
-                </template>
-              </v-checkbox>
-              <v-btn color="primary" block class="mt-2" :loading="loading" @click="onSignIn">
-                Iniciar sesión
-              </v-btn>
-            </v-form>
-          </v-col>
-        </v-row>
-        <v-row justify="center" class="mt-4">
-          <v-col cols="12" lg="8" class="text-center">
-            <span class="text-muted">
-              Versión 1.1.0
-            </span>
-          </v-col>
-        </v-row>
-      </v-card-text>
+            <div class="field-group">
+              <label>Email</label>
+              <v-text-field v-model="formData.mail.value" :rules="emailRules" variant="outlined" placeholder="administrador@gmail.com" prepend-inner-icon="ph-envelope" color="primary" />
+            </div>
+
+            <div class="field-group mt-4">
+              <label>Código de Empresa</label>
+              <v-text-field v-model="formData.companyCode.value" :rules="companyCodeRules" variant="outlined" placeholder="Ej: ART" prepend-inner-icon="ph-buildings" color="primary" />
+            </div>
+
+            <div class="field-group mt-4">
+              <label>Contraseña</label>
+              <v-text-field v-model="formData.password.value" :rules="passwordRules" variant="outlined" type="password" placeholder="••••••••" prepend-inner-icon="ph-lock" color="primary" />
+            </div>
+
+            <v-checkbox v-model="isRemember" label="Recordarme" color="primary" hide-details density="compact" class="mt-2" />
+
+            <v-btn color="primary" block size="x-large" class="mt-6 font-weight-bold text-none login-btn" elevation="4" :loading="loading" type="submit">
+              Iniciar sesión
+            </v-btn>
+
+            <div class="version-info">Versión 1.1.0</div>
+          </v-form>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
+
+<style scoped>
+/* RESET TOTAL PARA MATAR MÁRGENES DE VUETIFY */
+.auth-viewport {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  background-color: white;
+  z-index: 9999;
+}
+
+.login-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+/* LADO VISUAL */
+.visual-side {
+  position: relative;
+  background-color: #0d0d0d;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  overflow: hidden;
+}
+
+.gradient-overlay {
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(circle at 15% 15%, rgba(25, 118, 210, 0.3) 0%, transparent 55%),
+    radial-gradient(circle at 85% 85%, rgba(0, 200, 83, 0.1) 0%, transparent 55%),
+    linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+}
+
+.dots-overlay {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1.5px, transparent 1.5px);
+  background-size: 35px 35px;
+  z-index: 1;
+}
+
+/* LADO FORMULARIO */
+.form-side {
+  background: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+}
+
+.form-inner {
+  width: 100%;
+  max-width: 420px;
+}
+
+.field-group label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 5px;
+  font-size: 0.85rem;
+  color: #333;
+}
+
+.color-primary { color: #1976D2; }
+.brand-green { color: #00c853; }
+.title-shadow { text-shadow: 0 4px 15px rgba(0,0,0,0.6); }
+.z-10 { z-index: 10; }
+.visual-footer { position: absolute; bottom: 25px; z-index: 10; opacity: 0.8; }
+.version-info { text-align: center; margin-top: 45px; color: #bbb; font-size: 0.75rem; }
+
+/* RESPONSIVIDAD MÓVIL (Blindado contra espacios blancos) */
+@media (max-width: 960px) {
+  .auth-viewport {
+    position: relative;
+    height: auto;
+    min-height: 100vh;
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  .login-grid {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .visual-side {
+    width: 100%;
+    padding: 60px 20px;
+    height: auto;
+    min-height: 300px;
+  }
+
+  .form-side {
+    width: 100%;
+    padding: 40px 24px;
+    background: white;
+  }
+
+  .text-h2 { font-size: 2.25rem !important; }
+  .text-h3 { font-size: 1.85rem !important; }
+
+  .visual-footer {
+    position: relative;
+    bottom: 0;
+    margin-top: 30px;
+  }
+}
+</style>
