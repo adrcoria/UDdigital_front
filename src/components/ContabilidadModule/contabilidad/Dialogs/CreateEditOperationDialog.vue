@@ -4,7 +4,8 @@ import {
   ledgerAccountService,
   conceptService,
   conceptCategoryService,
-  operationsService
+  operationsService,
+  operationImageService
 } from "@/app/http/httpServiceProvider";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 
@@ -30,6 +31,9 @@ const deletingCategory = ref(false);
 const confirmDeleteConceptDialog = ref(false);
 const deletingConcept = ref(false);
 
+const selectedFiles = ref<File[]>([]);
+const uploadingFiles = ref(false);
+
 /* ---------- Form ---------- */
 const form = ref({
   accountId: "",
@@ -53,6 +57,17 @@ const resetForm = () => {
     amount: 0,
     operationDate: ""
   };
+  selectedFiles.value = [];
+};
+
+const onFilesPicked = (e: Event) => {
+  const files = (e.target as HTMLInputElement).files;
+  if (!files) return;
+  selectedFiles.value = Array.from(files);
+};
+
+const removeFile = (index: number) => {
+  selectedFiles.value.splice(index, 1);
 };
 
 /* ---------- Catálogos ---------- */
@@ -143,6 +158,8 @@ const unitsOfMeasure = [
   // --- Medidas de Tiempo (Para servicios/honorarios) ---
   { title: 'Hora (Hrs)', value: 'HRS' },
   { title: 'Día (Día)', value: 'DIA' },
+  { title: 'Semana', value: 'SEMANA' },
+  { title: 'Quincena', value: 'QUINCENA' },
   { title: 'Mes (Mes)', value: 'MES' },
 
   // --- Longitud / Superficie ---
@@ -218,6 +235,32 @@ const reloadConcepts = async () => {
     concepts.value = res.data.data;
   } finally {
     loadingConcepts.value = false;
+  }
+};
+
+const uploadDocuments = async (operationId: string) => {
+  if (selectedFiles.value.length === 0) return;
+
+  uploadingFiles.value = true;
+  try {
+    for (const file of selectedFiles.value) {
+      // 1. Obtener URL prefirmada
+      const presignedRes = await operationImageService.createOperationImage({
+        fileName: file.name,
+        contentType: file.type || "application/octet-stream",
+        uuidOperation: operationId,
+      });
+
+      const presignedUrl = presignedRes.data.data?.presignedUrl;
+      if (presignedUrl) {
+        // 2. Subir a S3
+        await operationImageService.uploadToS3(presignedUrl, file);
+      }
+    }
+  } catch (error) {
+    showErrorAlert("La operación se creó, pero algunos archivos no se pudieron subir.");
+  } finally {
+    uploadingFiles.value = false;
   }
 };
 
@@ -432,6 +475,8 @@ const save = async () => {
     operationDate: true
   };
 
+  let operationId: string = "";
+
   if (!isFormValid.value) return;
 
   try {
@@ -451,8 +496,13 @@ const save = async () => {
       await operationsService.updateOperation(props.operation.id, payload);
       showSuccessAlert("Operación actualizada");
     } else {
-      await operationsService.createOperation(payload);
+      const res = await operationsService.createOperation(payload);
       showSuccessAlert("Operación registrada");
+      operationId = res.data.data.id;
+
+      if (selectedFiles.value.length > 0) {
+        await uploadDocuments(operationId);
+      }
     }
 
     emit("refresh");
@@ -484,7 +534,7 @@ const save = async () => {
       <v-card-text>
         <div class="row">
           <v-autocomplete v-model="form.accountId" label="Cuenta *" :items="accounts" item-title="name" item-value="id"
-            :loading="loadingAccounts" :rules="accountRules" @blur="touched.accountId = true" class="flex-1" clearable
+            :loading="loadingAccounts" :rules="accountRules" @blur="touched.accountId = true" class="flex-1 text-uppercase" clearable
             auto-select-first />
 
           <!-- Acción principal -->
@@ -518,7 +568,7 @@ const save = async () => {
         <div class="row">
           <v-autocomplete v-model="form.categoryId" label="Categoría *" :items="categories" item-title="name"
             item-value="id" :loading="loadingCategories" :rules="categoryRules" :disabled="!form.accountId"
-            class="flex-1" clearable auto-select-first />
+            class="flex-1 text-uppercase" clearable auto-select-first />
 
 
           <v-btn icon variant="text" :disabled="!form.accountId" @click="newCategory" aria-label="Agregar categoría">
@@ -550,7 +600,7 @@ const save = async () => {
         <div class="row">
           <v-autocomplete v-model="form.conceptId" label="Concepto *" :items="concepts" item-title="name"
             item-value="id" :disabled="!form.categoryId" :loading="loadingConcepts" :rules="conceptRules"
-            @blur="touched.conceptId = true" class="flex-1" clearable auto-select-first />
+            @blur="touched.conceptId = true" class="flex-1 text-uppercase" clearable auto-select-first />
 
           <v-btn icon variant="text" :disabled="!form.categoryId" @click="newConcept" aria-label="Agregar concepto">
             <v-icon>mdi-plus</v-icon>
@@ -590,8 +640,9 @@ const save = async () => {
           <v-text-field type="number" label="Cantidad *" v-model.number="form.quantity" :rules="quantityRules"
             @blur="touched.quantity = true" class="flex-1" />
 
-          <v-select label="Unidad de Medida *" v-model="form.measurement" :items="unitsOfMeasure" item-title="title"
-            item-value="value" :rules="unitRules" @blur="touched.measurement = true" class="flex-1" />
+          <v-autocomplete label="Unidad de Medida *" v-model="form.measurement" :items="unitsOfMeasure"
+            item-title="title" item-value="value" :rules="unitRules" @blur="touched.measurement = true"
+            class="flex-grow-1 text-uppercase" auto-select-first clearable />
         </div>
 
         <v-text-field type="number" label="Monto *" v-model.number="form.amount" :rules="amountRules"
@@ -600,6 +651,22 @@ const save = async () => {
 
         <v-text-field type="date" label="Fecha *" v-model="form.operationDate" :rules="dateRules"
           @blur="touched.operationDate = true" />
+
+        <v-divider class="my-4"></v-divider>
+        <div class="text-subtitle-2 mb-2">Documentos adjuntos (opcional)</div>
+
+        <v-file-input v-model="selectedFiles" label="Seleccionar documentos" prepend-icon="mdi-paperclip"
+          variant="outlined" density="comfortable" multiple chips counter show-size accept="image/*,application/pdf"
+          :loading="uploadingFiles" hint="Puedes subir imágenes o PDFs" persistent-hint>
+          <template v-slot:selection="{ fileNames }">
+            <template v-for="(fileName, index) in fileNames" :key="fileName">
+              <v-chip size="small" label color="primary" class="me-2" closable @click:close="removeFile(index)">
+                {{ fileName }}
+              </v-chip>
+            </template>
+          </template>
+        </v-file-input>
+
       </v-card-text>
 
       <v-card-actions>
@@ -641,5 +708,27 @@ const save = async () => {
   flex: 1;
   min-width: 0;
   /* importante para que no rompa */
+}
+
+/* 1. Forzar texto en mayúsculas en el input mientras escribes */
+:deep(.v-field__input), 
+:deep(.v-field__input input) {
+  text-transform: uppercase !important;
+}
+
+/* 2. Forzar el texto que ya está seleccionado (el valor del autocomplete) */
+:deep(.v-autocomplete__selection-text),
+:deep(.v-select__selection-text) {
+  text-transform: uppercase !important;
+}
+
+/* 3. Forzar las etiquetas y títulos de los listados desplegables */
+:deep(.v-list-item-title) {
+  text-transform: uppercase !important;
+}
+
+/* 4. Clase utilitaria para el template */
+.text-uppercase {
+  text-transform: uppercase;
 }
 </style>

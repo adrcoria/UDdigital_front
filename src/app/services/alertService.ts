@@ -1,7 +1,29 @@
 // alertService.ts
 import Swal from "sweetalert2";
 
+const SESSION_EXPIRED_FLAG = "sessionExpired";
+const SESSION_EXPIRED_ALERT_SHOWN = "sessionExpiredAlertShown";
+
 export function showErrorAlert(message?: string, code?: string | number) {
+  const sessionExpired = sessionStorage.getItem(SESSION_EXPIRED_FLAG) === "true";
+  if (sessionExpired) {
+    const alreadyShown = sessionStorage.getItem(SESSION_EXPIRED_ALERT_SHOWN) === "true";
+    sessionStorage.removeItem(SESSION_EXPIRED_FLAG);
+    if (alreadyShown) return;
+    sessionStorage.setItem(SESSION_EXPIRED_ALERT_SHOWN, "true");
+
+    (Swal as any).fire({
+      target: document.getElementById('swal-container'),
+      customClass: {
+        popup: "mi-swal-popup"
+      },
+      icon: "warning",
+      title: "Aviso",
+      text: "Tu sesion ha expirado. Inicia sesion de nuevo."
+    });
+    return;
+  }
+
   const suffix = code ? ` COD-${code}` : "";
 
   (Swal as any).fire({

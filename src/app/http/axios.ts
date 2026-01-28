@@ -8,6 +8,9 @@ import appConfigs from "@/app/appConfigurations";
 import { accountService } from "./httpServiceProvider";
 import router from "@/router";
 
+const SESSION_EXPIRED_FLAG = "sessionExpired";
+const SESSION_EXPIRED_ALERT_SHOWN = "sessionExpiredAlertShown";
+
 const axiosInstance: AxiosInstance = axios.create({
   baseURL: appConfigs.baseUrl,
 });
@@ -125,6 +128,16 @@ axiosInstance.interceptors.response.use(
         return axiosInstance(originalRequest);
       } catch (err) {
         processQueue(err, null);
+        sessionStorage.setItem(SESSION_EXPIRED_FLAG, "true");
+        sessionStorage.removeItem(SESSION_EXPIRED_ALERT_SHOWN);
+        localStorage.removeItem("accessToken");
+        sessionStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        sessionStorage.removeItem("refreshToken");
+        localStorage.removeItem("accesTokenExpiresIn");
+        localStorage.removeItem("refreshTokenExpiresIn");
+        localStorage.removeItem("user");
+        sessionStorage.removeItem("user");
         router.push({ path: "/signin" });
         return Promise.reject(err);
       } finally {

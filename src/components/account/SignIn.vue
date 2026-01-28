@@ -7,6 +7,7 @@ import { showErrorAlert, showSuccessAlert } from "@/app/services/alertService";
 import CryptoJS from "crypto-js";
 
 const router = useRouter();
+const SESSION_EXPIRED_FLAG = "sessionExpired";
 
 const loading = ref(false);
 const isSubmitted = ref(false);
@@ -20,8 +21,7 @@ const formData = ref({
 const formRef = ref(null);
 
 const emailRules = [
-  v => !!v || 'El correo es requerido',
-  v => /.+@.+\..+/.test(v) || 'El correo debe ser válido',
+  v => !!v || 'El usuario es requerido'
 ];
 
 const passwordRules = [
@@ -73,6 +73,12 @@ const onSignIn = async () => {
       storage.setItem("accessToken", accessToken);
       storage.setItem("user", JSON.stringify(user));
       storage.setItem("refreshToken", refreshToken);
+
+      // 3.1 Limpiar banderas de expiración de sesión
+      sessionStorage.removeItem("sessionExpired");
+      sessionStorage.removeItem("sessionExpiredAlertShown");
+      localStorage.removeItem("sessionExpired");
+      localStorage.removeItem("sessionExpiredAlertShown");
 
       // 4. Lógica de "Recordarme" (Credenciales)
       if (isRemember.value) {
@@ -128,6 +134,10 @@ onMounted(() => {
     encryptedPassword &&
     encryptedCompanyCode
   );
+
+  if (sessionStorage.getItem(SESSION_EXPIRED_FLAG) === "true") {
+    showErrorAlert();
+  }
 });
 
 </script>
@@ -151,7 +161,7 @@ onMounted(() => {
                 Captura de email <i class="ph-asterisk ph-xs text-danger" />
               </div>
               <v-text-field id="email-field" variant="solo" density="compact" v-model="formData.mail.value"
-                :rules="emailRules" placeholder="Ingresa tu correo" />
+                :rules="emailRules" placeholder="Ingresa tu usuario" />
               <div class="font-weight-medium mb-1">
                 Código de empresa <i class="ph-asterisk ph-xs text-danger" />
               </div>
