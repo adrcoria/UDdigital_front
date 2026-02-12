@@ -19,6 +19,7 @@ const catalogs = [
   { title: "Orígenes", value: "bovine-origin" },
   { title: "Propietarios", value: "livestock-owner" },
   { title: "Razas", value: "bovine-race" },
+  { title: "Causas de muerte", value: "death-cause" }
 ];
 
 /* ------------------ Computed para buscador ------------------ */
