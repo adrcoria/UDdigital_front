@@ -27,20 +27,21 @@ const form = ref<any>({
   notes: "",
   dateAddedToHerd: "",
   daysOpen: 0,
-  birthWeight: 0,
-  saleValue: 0,
-  purchaseValue: 0,
-  netWeight: 0,
+  birthWeight: 0,   // Peso Inicial (Legacy: pesoAlNacer)
+  saleValue: 0,     // Valor Venta (Calculado)
+  purchaseValue: 0, // Valor Compra (Condicional)
+  netWeight: 0,     // Peso Neto (Calculado)
+  gdpTotal: 0,    // GDP (Legacy: Solo lectura, valor fijo solicitado)
   sexId: null,
   bovineOriginId: null,
   bovineTypeId: null,
+  bovinePurposeId: null,
+  livestockOwnerId: null,
   fatherId: null,
   motherId: null,
-  birthStatus: "VIVO",
+//   birthStatus: "VIVO",
   bovineStatus: "VIVO",
   deathCauseId: null,
-  livestockOwnerId: null,
-  bovinePurposeId: null,
   deathComments: "",
   raceAssignments: []
 });
@@ -52,11 +53,30 @@ const totalPercentage = computed(() => {
   return selectedRaces.value.reduce((acc, curr) => acc + (Number(curr.percentage) || 0), 0);
 });
 
-/* ------------------ Logic ------------------ */
+/* ------------------ Logic: Cálculos Trasladados del Legacy ------------------ */
+
+/**
+ * Replica el método onChangePrecio() del legacy.
+ * Calcula Peso Neto y Valor de Venta basado en el Peso Inicial y el GDP estático.
+ */
+const onChangePrecio = () => {
+  const precioKiloFijo = 60; // Valor fijo solicitado
+
+  // Peso Neto = Peso Inicial + GDP Total (Fórmula Legacy)
+  form.value.netWeight = Number(form.value.birthWeight || 0) + Number(form.value.gdpTotal || 0);
+
+  // Valor Venta = Peso Neto * Precio Kilo
+  form.value.saleValue = form.value.netWeight * precioKiloFijo;
+};
+
+// Trigger de recalculo cuando cambia el peso (Simula el @keyup del legacy)
+watch(() => form.value.birthWeight, () => {
+  onChangePrecio();
+});
+
 const loadData = async () => {
   try {
     loadingCatalogs.value = true;
-    
     const fetchSafe = async (slug: string) => {
       try {
         const res = await liveStockService.getItems(slug, { page: 1, limit: 1000 });
@@ -83,9 +103,8 @@ const loadData = async () => {
       const resF = await bovineService.getBovinesBySex(femaleId);
       listFemales.value = resF.data?.data || [];
     }
-
   } catch (e) {
-    console.error("Error en carga de datos iniciales");
+    console.error("Error cargando catálogos");
   } finally {
     loadingCatalogs.value = false;
   }
@@ -96,10 +115,11 @@ const resetForm = () => {
     companyId: "2a05091a-6d59-44c0-af4a-d54cc9e5ea0f",
     siniigaEarTag: "", internalEarTag: "", name: "", birthDate: "",
     notes: "", dateAddedToHerd: "", daysOpen: 0, birthWeight: 0,
-    saleValue: 0, purchaseValue: 0, netWeight: 0, sexId: null,
-    bovineOriginId: null, bovineTypeId: null, fatherId: null, motherId: null,
-    birthStatus: "VIVO", bovineStatus: "VIVO", deathCauseId: null,
-    livestockOwnerId: null, bovinePurposeId: null, deathComments: ""
+    saleValue: 0, purchaseValue: 0, netWeight: 0, gdpTotal: 0,
+    sexId: null, bovineOriginId: null, bovineTypeId: null, bovinePurposeId: null,
+    livestockOwnerId: null, fatherId: null, motherId: null,
+    // birthStatus: "VIVO", 
+    bovineStatus: "VIVO", deathCauseId: null, deathComments: ""
   };
   selectedRaces.value = [{ raceId: null, percentage: 100, order: 1 }];
 };
@@ -110,21 +130,31 @@ watch(() => props.modelValue, (val) => {
   if (val) {
     loadData();
     if (props.item) {
-      form.value = { ...props.item };
+      form.value = { 
+        ...form.value,
+        ...props.item,
+        sexId: props.item.sexId || props.item.sex?.id,
+        bovineOriginId: props.item.bovineOriginId || props.item.bovineOrigin?.id,
+        bovineTypeId: props.item.bovineTypeId || props.item.bovineType?.id,
+        bovinePurposeId: props.item.bovinePurposeId || props.item.bovinePurpose?.id,
+        livestockOwnerId: props.item.livestockOwnerId || props.item.livestockOwner?.id,
+        fatherId: props.item.fatherId || props.item.father?.id,
+        motherId: props.item.motherId || props.item.mother?.id,
+        gdpTotal: props.item.gdpTotal ?? 0.8
+      };
       selectedRaces.value = props.item.raceAssignments?.length 
         ? JSON.parse(JSON.stringify(props.item.raceAssignments))
         : [{ raceId: null, percentage: 100, order: 1 }];
+      
+      onChangePrecio(); // Recalcular al cargar para asegurar pesos correctos
     } else {
       resetForm();
     }
   }
 }, { immediate: true });
 
-watch(dialog, (v) => {
-  emit("update:modelValue", v);
-});
+watch(dialog, (v) => emit("update:modelValue", v));
 
-/* ------------------ Actions ------------------ */
 const addRace = () => selectedRaces.value.push({ raceId: null, percentage: 0, order: selectedRaces.value.length + 1 });
 const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
 
@@ -170,7 +200,7 @@ const save = async () => {
       <v-card-text class="pa-6">
         <div v-if="loadingCatalogs" class="text-center py-10">
           <v-progress-circular indeterminate color="primary" />
-          <div class="mt-2 text-grey">Preparando formulario...</div>
+          <div class="mt-2 text-grey">Sincronizando datos...</div>
         </div>
 
         <v-row v-else dense>
@@ -178,68 +208,65 @@ const save = async () => {
           <v-col cols="12" md="4"><v-text-field label="Arete Interno" v-model="form.internalEarTag" variant="outlined" /></v-col>
           <v-col cols="12" md="4"><v-text-field label="Nombre / Apodo" v-model="form.name" variant="outlined" /></v-col>
 
-          <v-col cols="12" md="3"><v-text-field label="Fecha Nac." type="date" v-model="form.birthDate" variant="outlined" /></v-col>
-          <v-col cols="12" md="3"><v-text-field label="Fecha Ingreso Hato" type="date" v-model="form.dateAddedToHerd" variant="outlined" /></v-col>
-          <v-col cols="12" md="3"><v-text-field label="Peso Nac. (kg)" type="number" v-model="form.birthWeight" variant="outlined" /></v-col>
-          <v-col cols="12" md="3"><v-text-field label="Peso Neto (kg)" type="number" v-model="form.netWeight" variant="outlined" /></v-col>
+          <v-col cols="12" md="3">
+            <v-text-field label="Peso Inicial (kg)" type="number" v-model.number="form.birthWeight" variant="outlined" />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-text-field label="GDP Total (kg)" v-model="form.gdpTotal" variant="outlined" readonly bg-color="grey-lighten-4"  persistent-hint />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-text-field label="Peso Neto" v-model="form.netWeight" variant="outlined" readonly suffix="KG" bg-color="grey-lighten-4" />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-text-field label="Valor Venta" v-model="form.saleValue" variant="outlined" readonly prefix="$" bg-color="grey-lighten-4" />
+          </v-col>
 
-          <v-col cols="12" md="4">
-            <v-autocomplete label="Sexo" v-model="form.sexId" :items="lists.sex" item-title="name" item-value="id" variant="outlined" />
+          <v-col cols="12" md="6"><v-text-field label="Fecha Nac." type="date" v-model="form.birthDate" variant="outlined" /></v-col>
+          <v-col cols="12" md="6"><v-text-field label="Fecha Ingreso Hato" type="date" v-model="form.dateAddedToHerd" variant="outlined" /></v-col>
+
+          <v-col cols="12" md="3"><v-autocomplete label="Sexo" v-model="form.sexId" :items="lists.sex" item-title="name" item-value="id" variant="outlined" /></v-col>
+          <v-col cols="12" md="3"><v-autocomplete label="Etapa de vida" v-model="form.bovineTypeId" :items="lists.types" item-title="name" item-value="id" variant="outlined" /></v-col>
+          <v-col cols="12" md="3"><v-autocomplete label="Propósito" v-model="form.bovinePurposeId" :items="lists.purposes" item-title="name" item-value="id" variant="outlined" /></v-col>
+          <v-col cols="12" md="3"><v-autocomplete label="Origen" v-model="form.bovineOriginId" :items="lists.origins" item-title="name" item-value="id" variant="outlined" /></v-col>
+
+          <v-col cols="12" v-if="lists.origins.find(o => o.id === form.bovineOriginId)?.name.toUpperCase().includes('COMPRA')">
+            <v-text-field label="Valor de Compra" type="number" v-model.number="form.purchaseValue" variant="outlined" prefix="$" />
           </v-col>
-          <v-col cols="12" md="4">
+
+          <v-col cols="12">
             <v-autocomplete label="Propietario" v-model="form.livestockOwnerId" :items="lists.owners" :item-title="i => `${i.firstName} ${i.lastName}`" item-value="id" variant="outlined" />
-          </v-col>
-          <v-col cols="12" md="4">
-            <v-autocomplete label="Origen" v-model="form.bovineOriginId" :items="lists.origins" item-title="name" item-value="id" variant="outlined" />
           </v-col>
 
           <v-col cols="12" v-if="lists.origins.find(o => o.id === form.bovineOriginId)?.name.toUpperCase().includes('HATO')">
             <v-row dense>
-              <v-col cols="12" md="6">
-                <v-autocomplete label="Padre (Semental)" v-model="form.fatherId" :items="listMales" item-title="name" item-value="id" variant="outlined" clearable />
-              </v-col>
-              <v-col cols="12" md="6">
-                <v-autocomplete label="Madre (Vaca)" v-model="form.motherId" :items="listFemales" item-title="name" item-value="id" variant="outlined" clearable />
-              </v-col>
+              <v-col cols="12" md="6"><v-autocomplete label="Padre" v-model="form.fatherId" :items="listMales" item-title="name" item-value="id" variant="outlined" clearable /></v-col>
+              <v-col cols="12" md="6"><v-autocomplete label="Madre" v-model="form.motherId" :items="listFemales" item-title="name" item-value="id" variant="outlined" clearable /></v-col>
             </v-row>
           </v-col>
 
           <v-col cols="12"><v-divider class="my-3" />Estatus</v-col>
-          <v-col cols="12" md="4">
-            <v-autocomplete label="Estatus al Nacer" v-model="form.birthStatus" :items="['VIVO', 'MUERTO']" variant="outlined" />
-          </v-col>
-          <v-col cols="12" md="4">
-            <v-autocomplete label="Estatus Actual" v-model="form.bovineStatus" :items="['VIVO', 'MUERTO']" variant="outlined" />
-          </v-col>
-          <v-col cols="12" md="4" v-if="form.bovineStatus === 'MUERTO'">
-            <v-autocomplete label="Causa de Muerte" v-model="form.deathCauseId" :items="lists.deathCauses" item-title="name" item-value="id" variant="outlined" />
-          </v-col>
+          <!-- <v-col cols="12" md="6"><v-autocomplete label="Estatus al Nacer" v-model="form.birthStatus" :items="['VIVO', 'MUERTO']" variant="outlined" /></v-col> -->
+          <v-col cols="12" md="6"><v-autocomplete label="Estatus Actual" v-model="form.bovineStatus" :items="['VIVO', 'MUERTO']" variant="outlined" /></v-col>
+          
+          <template v-if="form.bovineStatus === 'MUERTO'">
+            <v-col cols="12" md="6"><v-autocomplete label="Causa de Muerte" v-model="form.deathCauseId" :items="lists.deathCauses" item-title="name" item-value="id" variant="outlined" /></v-col>
+            <v-col cols="12" md="6"><v-text-field label="Comentarios de Defunción" v-model="form.deathComments" variant="outlined" /></v-col>
+          </template>
 
           <v-col cols="12">
             <v-divider class="my-3" />
             <div class="d-flex justify-space-between align-center mb-2">
-              <span class="text-subtitle-2">Composición Racial (%)</span>
+              <span class="text-subtitle-2 font-weight-bold">Composición Racial (%)</span>
               <v-btn size="small" color="secondary" variant="flat" @click="addRace" :disabled="totalPercentage >= 100">+ Añadir Raza</v-btn>
             </div>
             <v-row v-for="(race, index) in selectedRaces" :key="index" dense align="center">
-              <v-col cols="7">
-                <v-autocomplete label="Raza" v-model="race.raceId" :items="lists.races" item-title="name" item-value="id" variant="outlined" density="comfortable" />
-              </v-col>
-              <v-col cols="3">
-                <v-text-field label="%" v-model="race.percentage" type="number" variant="outlined" density="comfortable" />
-              </v-col>
-              <v-col cols="2">
-                <v-btn icon="ph-trash" variant="text" color="error" @click="removeRace(index)" v-if="selectedRaces.length > 1" />
-              </v-col>
+              <v-col cols="7"><v-autocomplete label="Raza" v-model="race.raceId" :items="lists.races" item-title="name" item-value="id" variant="outlined" density="comfortable" /></v-col>
+              <v-col cols="3"><v-text-field label="%" v-model="race.percentage" type="number" variant="outlined" density="comfortable" /></v-col>
+              <v-col cols="2"><v-btn icon="ph-trash" variant="text" color="error" @click="removeRace(index)" v-if="selectedRaces.length > 1" /></v-col>
             </v-row>
-            <v-alert v-if="totalPercentage !== 100" type="warning" density="compact" variant="tonal" class="mt-2 text-caption">
-              La suma debe ser 100%. Actual: {{ totalPercentage }}%
-            </v-alert>
           </v-col>
 
-          <v-col cols="12">
-            <v-textarea label="Notas Generales" v-model="form.notes" variant="outlined" rows="2" />
-          </v-col>
+          <v-col cols="12"><v-textarea label="Notas" v-model="form.notes" variant="outlined" rows="2" /></v-col>
         </v-row>
       </v-card-text>
 

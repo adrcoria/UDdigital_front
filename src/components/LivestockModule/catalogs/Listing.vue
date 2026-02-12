@@ -36,11 +36,21 @@ const deleting = ref(false);
 const headers = computed(() => {
   if (props.catalog === "livestock-owner") {
     return [
-      { title: "Propietario" }, // Mostraremos Nombre + Apellido
+      { title: "Propietario" },
       { title: "Empresa" },
       { title: "Acciones", align: "center" },
     ];
   }
+
+  if (props.catalog === "bovine-type") {
+    return [
+      { title: "Nombre" },
+      { title: "Sexo" },
+      { title: "Meses" },
+      { title: "Acciones", align: "center" },
+    ];
+  }
+
   return [
     { title: "Nombre" },
     { title: "Acciones", align: "center" },
@@ -104,7 +114,7 @@ watch(() => config.value.itemsPerPage, () => { page.value = 1; getItems(); });
 /* ------------------ Actions ------------------ */
 const onSelectAction = (option: string, data: any) => {
   if (option === "edit") {
-    selectedItem.value = data; 
+    selectedItem.value = data;
     createDialog.value = true;
   } else if (option === "delete") {
     itemToDelete.value = data;
@@ -161,6 +171,16 @@ onMounted(getItems);
               <td>{{ item.company?.name || 'N/A' }}</td>
             </template>
 
+            <template v-else-if="catalog === 'bovine-type'">
+              <td>{{ item.name }}</td>
+              <td>
+                <v-chip size="small" color="primary" variant="tonal">
+                  {{ item.sex?.name || 'N/A' }}
+                </v-chip>
+              </td>
+              <td>{{ item.months }} meses</td>
+            </template>
+
             <template v-else>
               <td>{{ item.name }}</td>
             </template>
@@ -180,8 +200,8 @@ onMounted(getItems);
       </div>
 
       <div style="width: 100px;" class="mt-4 mx-auto">
-        <v-select label="Por página" :items="[10, 25, 50]" v-model="config.itemsPerPage" variant="underlined" density="compact"
-          hide-details />
+        <v-select label="Por página" :items="[10, 25, 50]" v-model="config.itemsPerPage" variant="underlined"
+          density="compact" hide-details />
       </div>
     </v-card-text>
   </v-card>

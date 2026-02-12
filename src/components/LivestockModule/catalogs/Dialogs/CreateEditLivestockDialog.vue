@@ -11,42 +11,66 @@ const props = defineProps<{
 
 const emit = defineEmits(["refresh", "update:modelValue"]);
 
+/* ------------------ State ------------------ */
 const dialog = ref(false);
 const loading = ref(false);
+const loadingSex = ref(false);
+const sexList = ref<any[]>([]);
 
 const form = ref({
   name: "",
-  phone: ""
+  phone: "",
+  months: 0,
+  sexId: null as string | null
 });
 
 const touched = ref({
   name: false,
-  phone: false
+  phone: false,
+  months: false,
+  sexId: false
 });
 
+/* ------------------ Validations ------------------ */
 const req = (v: any) => !!v || "Obligatorio";
+const pos = (v: any) => Number(v) > 0 || "Debe ser mayor a 0";
 
-const nameRules = computed(() =>
-  touched.value.name ? [req] : []
-);
+const nameRules = computed(() => touched.value.name ? [req] : []);
+const phoneRules = computed(() => (props.catalog === "livestock-owner" && touched.value.phone) ? [req] : []);
+const sexRules = computed(() => (props.catalog === "bovine-type" && touched.value.sexId) ? [req] : []);
+const monthRules = computed(() => (props.catalog === "bovine-type" && touched.value.months) ? [pos] : []);
 
-const phoneRules = computed(() =>
-  props.catalog === "livestock-owner" && touched.value.phone ? [req] : []
-);
+/* ------------------ Logic ------------------ */
+const fetchSexCatalog = async () => {
+  if (props.catalog !== 'bovine-type') return;
+  try {
+    loadingSex.value = true;
+    const res = await liveStockService.getItems('sex', { page: 1, limit: 100 });
+    sexList.value = res.data?.data?.data || res.data?.data || [];
+  } catch (error) {
+    console.error("Error cargando sexos:", error);
+  } finally {
+    loadingSex.value = false;
+  }
+};
 
 watch(
   () => props.modelValue,
-  (v) => {
+  async (v) => {
     dialog.value = v;
-
-    if (v && props.item) {
-      form.value = {
-        name: props.item.name,
-        phone: props.item.phone || ""
-      };
-    } else if (v) {
-      form.value = { name: "", phone: "" };
-      touched.value = { name: false, phone: false };
+    if (v) {
+      await fetchSexCatalog();
+      if (props.item) {
+        form.value = {
+          name: props.item.name,
+          phone: props.item.phone || "",
+          months: props.item.months || 0,
+          sexId: props.item.sexId || props.item.sex?.id || null
+        };
+      } else {
+        form.value = { name: "", phone: "", months: 0, sexId: null };
+        touched.value = { name: false, phone: false, months: false, sexId: false };
+      }
     }
   },
   { immediate: true }
@@ -55,29 +79,38 @@ watch(
 watch(dialog, (v) => emit("update:modelValue", v));
 
 const isFormValid = computed(() => {
-  if (props.catalog === "livestock-owner") {
-    return !!form.value.name && !!form.value.phone;
+  const baseValid = !!form.value.name;
+  if (props.catalog === "livestock-owner") return baseValid && !!form.value.phone;
+  if (props.catalog === "bovine-type") {
+    // Validación de meses > 0 y existencia de sexId
+    return baseValid && !!form.value.sexId && Number(form.value.months) > 0;
   }
-  return !!form.value.name;
+  return baseValid;
 });
 
 const save = async () => {
   touched.value.name = true;
-  if (props.catalog === "livestock-owner") {
-    touched.value.phone = true;
+  if (props.catalog === "livestock-owner") touched.value.phone = true;
+  if (props.catalog === "bovine-type") {
+    touched.value.sexId = true;
+    touched.value.months = true;
   }
 
   if (!isFormValid.value) return;
 
   try {
     loading.value = true;
-
     const payload: any = {
       name: form.value.name.toUpperCase()
     };
 
     if (props.catalog === "livestock-owner") {
       payload.phone = form.value.phone;
+    }
+
+    if (props.catalog === "bovine-type") {
+      payload.months = Number(form.value.months);
+      payload.sexId = form.value.sexId; // UUID de sexo especificado
     }
 
     if (props.item?.id) {
@@ -90,7 +123,7 @@ const save = async () => {
 
     emit("refresh");
     dialog.value = false;
-  } catch {
+  } catch (error) {
     showErrorAlert("Error al guardar");
   } finally {
     loading.value = false;
@@ -99,14 +132,13 @@ const save = async () => {
 </script>
 
 <template>
-  <v-dialog v-model="dialog" max-width="450px">
+  <v-dialog v-model="dialog" max-width="450px" persistent>
     <v-card>
-      <v-card-title class="pa-4 text-h6 font-weight-bold">
-        {{ props.item ? "Editar Registro" : "Registrar Registro" }}
+      <v-card-title class="pa-4 text-h6 font-weight-bold bg-grey-lighten-4">
+        {{ props.item ? "Editar " : "Registrar " }} Registro
       </v-card-title>
 
-      <v-card-text>
-
+      <v-card-text class="mt-2">
         <v-text-field
           label="Nombre *"
           v-model="form.name"
@@ -114,9 +146,34 @@ const save = async () => {
           @blur="touched.name = true"
           variant="outlined"
           density="comfortable"
-          clearable
           class="text-uppercase"
         />
+
+        <template v-if="catalog === 'bovine-type'">
+          <v-autocomplete
+            label="Sexo Aplicable *"
+            v-model="form.sexId"
+            :items="sexList"
+            item-title="name"
+            item-value="id"
+            :rules="sexRules"
+            :loading="loadingSex"
+            @blur="touched.sexId = true"
+            variant="outlined"
+            density="comfortable"
+            class="mt-2"
+          />
+          <v-text-field
+            label="Meses sugeridos *"
+            v-model="form.months"
+            type="number"
+            :rules="monthRules"
+            @blur="touched.months = true"
+            variant="outlined"
+            density="comfortable"
+            class="mt-2"
+          />
+        </template>
 
         <v-text-field
           v-if="catalog === 'livestock-owner'"
@@ -126,20 +183,17 @@ const save = async () => {
           @blur="touched.phone = true"
           variant="outlined"
           density="comfortable"
-          clearable
-          class="text-uppercase mt-2"
+          class="mt-2"
         />
-
       </v-card-text>
 
+      <v-divider />
       <v-card-actions class="pa-4">
         <v-spacer />
-        <v-btn variant="text" @click="dialog = false">
-          Cancelar
-        </v-btn>
-
+        <v-btn variant="plain" @click="dialog = false">Cancelar</v-btn>
         <v-btn
           color="primary"
+          variant="flat"
           :loading="loading"
           :disabled="!isFormValid"
           @click="save"
@@ -150,14 +204,3 @@ const save = async () => {
     </v-card>
   </v-dialog>
 </template>
-
-<style scoped>
-:deep(.v-field__input),
-:deep(.v-field__input input) {
-  text-transform: uppercase !important;
-}
-
-.text-uppercase {
-  text-transform: uppercase;
-}
-</style>
