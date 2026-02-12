@@ -67,6 +67,24 @@ export const menuItems: MenuItemType[] = [
         roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
       }
     ]
+  },
+  {
+    label: "Ganadería", // Nueva sección
+    icon: "ph-paw-print", // O un icono de tu preferencia como 
+    id: "sidebarLivestock",
+    roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA],
+    subMenu: [
+       {
+        label: "Bovinos", // Nueva opción para el inventario
+        link: "/ganaderia/bovinos",
+        roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
+      },
+      {
+        label: "Catálogos Ganado",
+        link: "/ganaderia/catalogos",
+        roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
+      },
+    ]
   }
 ];
 

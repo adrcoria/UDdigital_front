@@ -77,6 +77,33 @@ const configRoutes = [
   }
 ];
 
+/* ======================================================
+ * GANADERÍA
+ * ====================================================== */
+const livestockRoutes = [
+  {
+    path: "/ganaderia/catalogos",
+    name: "LivestockCatalogs",
+    component: () => import("@/views/livestock/LivestockCatalogPage.vue"),
+    meta: {
+      title: "Catálogos de Ganado",
+      authRequired: true,
+      layout: DefaultLayout
+    }
+  },
+  {
+    path: "/ganaderia/bovinos",
+    name: "LivestockBovines",
+    // Esta es la página que creamos con el Breadcrumb y el BovineIndex
+    component: () => import("@/views/livestock/BovinePage.vue"), 
+    meta: {
+      title: "Administración de Ganado",
+      authRequired: true,
+      layout: DefaultLayout
+    }
+  }
+];
+
 const adminRoutes = [
   {
     path: "/administracion/ingresos-egresos",
@@ -99,5 +126,6 @@ export const routes = [
   ...accountRoutes,
   ...pagesRoutes,
   ...configRoutes,
-  ...adminRoutes
+  ...adminRoutes,
+  ...livestockRoutes
 ];
