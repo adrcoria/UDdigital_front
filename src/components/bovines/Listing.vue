@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, computed } from "vue";
 import Table from "@/app/common/components/Table.vue";
 import ListMenuWithIcon from "@/app/common/components/ListMenuWithIcon.vue";
 import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
@@ -15,7 +15,7 @@ const props = defineProps({
 const tableData = ref<any[]>([]);
 const loading = ref(false);
 const page = ref(1);
-const expandedRows = ref<string[]>([]); // Control de las filas expandidas
+const expandedRows = ref<string[]>([]);
 
 const config = ref({
   page: 1,
@@ -60,7 +60,7 @@ const getItems = async () => {
     const response = await bovineService.getBovines(params);
     const resData = response.data.data;
 
-    // Según tu JSON: la lista está en resData.list y el total en resData.total
+    // Mapeo según estructura del JSON proporcionado
     tableData.value = resData.list || [];
     config.value.noOfItems = resData.total || 0;
     config.value.page = page.value;
@@ -115,7 +115,7 @@ onMounted(getItems);
     <v-card-title class="pa-4 d-flex justify-space-between align-center">
       <div class="text-subtitle-1 font-weight-bold">Inventario de Bovinos</div>
       <v-btn color="primary" @click="selectedItem = null; createEditDialog = true">
-        <i class="ph-plus-circle mr-2"></i> Registrar Bovino
+        <v-icon icon="ph-plus-circle" class="mr-2" /> Registrar Bovino
       </v-btn>
     </v-card-title>
 
@@ -123,7 +123,7 @@ onMounted(getItems);
       <Table v-model="page" :config="config" :headerItems="headers" :loading="loading" is-pagination>
         <template #body>
           <template v-for="item in tableData" :key="item.id">
-            <tr :class="{ 'bg-grey-lighten-4': expandedRows.includes(item.id) }">
+            <tr :class="{ 'bg-blue-grey-lighten-5': expandedRows.includes(item.id) }">
               <td>
                 <v-btn
                   variant="text"
@@ -133,14 +133,18 @@ onMounted(getItems);
                 />
               </td>
               <td>
-                <div class="font-weight-bold">{{ item.siniigaEarTag || 'N/A' }}</div>
-                <div class="text-caption text-grey">{{ item.internalEarTag }}</div>
+                <div class="font-weight-bold">{{ item.siniigaEarTag || 'SIN ARETE' }}</div>
+                <div class="text-caption text-grey">{{ item.internalEarTag || 'S/N Interno' }}</div>
               </td>
-              <td>{{ item.name }}</td>
-              <td>{{ item.sex?.name || 'N/A' }}</td>
+              <td>{{ item.name || 'Sin nombre' }}</td>
+              <td>
+                <v-chip size="x-small" variant="tonal" :color="item.sex?.name === 'MACHO' ? 'blue' : 'pink'">
+                  {{ item.sex?.name || 'N/A' }}
+                </v-chip>
+              </td>
               <td>{{ item.bovineRace?.name || 'N/A' }}</td>
               <td>
-                <v-chip size="x-small" :color="item.bovineStatus === 'VIVO' ? 'success' : 'error'">
+                <v-chip size="x-small" :color="item.bovineStatus === 'VIVO' ? 'success' : 'error'" variant="flat">
                   {{ item.bovineStatus }}
                 </v-chip>
               </td>
@@ -152,31 +156,92 @@ onMounted(getItems);
             <tr v-if="expandedRows.includes(item.id)">
               <td colspan="7" class="pa-0">
                 <v-expand-transition>
-                  <div class="pa-4 bg-grey-lighten-5 border-b">
-                    <v-row dense>
+                  <div class="pa-5 bg-grey-lighten-5 border-b">
+                    <v-row>
                       <v-col cols="12" md="3">
-                        <div class="text-caption font-weight-bold text-grey">Propietario</div>
-                        <div class="text-body-2">{{ item.livestockOwner?.firstName }} {{ item.livestockOwner?.lastName }}</div>
-                        <div class="text-caption text-primary">{{ item.livestockOwner?.company?.name }}</div>
+                        <div class="d-flex align-center mb-2">
+                          <v-icon size="18" color="primary" class="mr-2">ph-tree-structure</v-icon>
+                          <span class="text-subtitle-2 font-weight-bold">Genealogía</span>
+                        </div>
+                        <div class="pl-7">
+                          <div class="text-caption text-grey">Padre</div>
+                          <div class="text-body-2 mb-1">{{ item.father?.name || 'No registrado' }}</div>
+                          <div class="text-caption text-grey">Madre</div>
+                          <div class="text-body-2">{{ item.mother?.name || 'No registrado' }}</div>
+                        </div>
                       </v-col>
+
                       <v-col cols="12" md="3">
-                        <div class="text-caption font-weight-bold text-grey">Información Cría</div>
-                        <div class="text-body-2">Nacimiento: {{ item.birthDate }}</div>
-                        <div class="text-body-2">Peso Nac.: {{ item.birthWeight }} kg</div>
+                        <div class="d-flex align-center mb-2">
+                          <v-icon size="18" color="primary" class="mr-2">ph-calendar-check</v-icon>
+                          <span class="text-subtitle-2 font-weight-bold">Tiempos y Tipo</span>
+                        </div>
+                        <div class="pl-7">
+                          <div class="text-caption text-grey">Nacimiento / Ingreso</div>
+                          <div class="text-body-2 mb-1">{{ item.birthDate }} / {{ item.dateAddedToHerd }}</div>
+                          <div class="text-caption text-grey">Tipo y Propósito</div>
+                          <div class="text-body-2">{{ item.bovineType?.name || 'S/T' }} - {{ item.bovinePurpose?.name || 'S/P' }}</div>
+                          <div class="text-caption text-grey">Origen</div>
+                          <div class="text-body-2">{{ item.bovineOrigin?.name || 'N/A' }}</div>
+                        </div>
                       </v-col>
+
                       <v-col cols="12" md="3">
-                        <div class="text-caption font-weight-bold text-grey">Valores Mercado</div>
-                        <div class="text-body-2">Compra: ${{ item.purchaseValue }}</div>
-                        <div class="text-body-2 text-success">Venta: ${{ item.saleValue }}</div>
+                        <div class="d-flex align-center mb-2">
+                          <v-icon size="18" color="primary" class="mr-2">ph-scales</v-icon>
+                          <span class="text-subtitle-2 font-weight-bold">Desarrollo (kg)</span>
+                        </div>
+                        <div class="pl-7">
+                          <div class="text-caption text-grey">Peso Inicial</div>
+                          <div class="text-body-2 mb-1">{{ item.birthWeight }} kg</div>
+                          <div class="text-caption text-grey">Peso Neto Actual</div>
+                          <div class="text-body-2 font-weight-bold text-primary">{{ item.netWeight }} kg</div>
+                          <div class="text-caption text-grey">Días Abiertos</div>
+                          <div class="text-body-2">{{ item.daysOpen }} días</div>
+                        </div>
                       </v-col>
+
                       <v-col cols="12" md="3">
-                        <div class="text-caption font-weight-bold text-grey">Clasificación</div>
-                        <div class="text-body-2">Tipo: {{ item.bovineType?.name }}</div>
-                        <div class="text-body-2">Origen: {{ item.bovineOrigin?.name }}</div>
+                        <div class="d-flex align-center mb-2">
+                          <v-icon size="18" color="primary" class="mr-2">ph-currency-dollar</v-icon>
+                          <span class="text-subtitle-2 font-weight-bold">Valores</span>
+                        </div>
+                        <div class="pl-7">
+                          <div class="text-caption text-grey">Valor Compra</div>
+                          <div class="text-body-2 mb-1">${{ item.purchaseValue || '0.00' }}</div>
+                          <div class="text-caption text-grey">Valor Venta Sugerido</div>
+                          <div class="text-body-2 text-success font-weight-bold">${{ item.saleValue || '0.00' }}</div>
+                        </div>
                       </v-col>
-                      <v-col cols="12" class="mt-2">
-                        <div class="text-caption font-weight-bold text-grey">Notas</div>
-                        <p class="text-body-2 mb-0">{{ item.notes || 'Sin observaciones.' }}</p>
+                    </v-row>
+
+                    <v-divider class="my-4"></v-divider>
+
+                    <v-row dense align="center">
+                      <v-col cols="12" md="4">
+                        <div class="text-caption font-weight-bold text-grey mb-1">Responsable / Dueño</div>
+                        <div class="d-flex align-center">
+                          <v-avatar size="36" color="primary" variant="tonal" class="mr-3">
+                            <span class="text-caption font-weight-bold">{{ item.livestockOwner?.firstName?.charAt(0) }}{{ item.livestockOwner?.lastName?.charAt(0) }}</span>
+                          </v-avatar>
+                          <div>
+                            <div class="text-body-2 font-weight-bold">{{ item.livestockOwner?.firstName }} {{ item.livestockOwner?.lastName }}</div>
+                            <div class="text-caption text-primary">{{ item.company?.name }}</div>
+                          </div>
+                        </div>
+                      </v-col>
+
+                      <v-col cols="12" md="4">
+                        <div class="text-caption font-weight-bold text-grey mb-1">Notas y Observaciones</div>
+                        <div class="text-body-2 text-italic">{{ item.notes || 'Sin observaciones registradas.' }}</div>
+                      </v-col>
+
+                      <v-col cols="12" md="4" v-if="item.bovineStatus === 'MUERTO'">
+                        <v-alert density="compact" color="error" variant="tonal" icon="ph-skull">
+                          <div class="text-caption font-weight-bold">Defunción</div>
+                          <div class="text-body-2">Fecha: {{ item.deathDate || 'N/A' }}</div>
+                          <div class="text-caption mt-1">{{ item.deathComments || 'Sin comentarios.' }}</div>
+                        </v-alert>
                       </v-col>
                     </v-row>
                   </div>
@@ -186,47 +251,58 @@ onMounted(getItems);
           </template>
 
           <tr v-if="!loading && tableData.length === 0">
-            <td colspan="7" class="text-center py-10">
-              <v-icon size="40" color="grey">ph-magnifying-glass</v-icon>
-              <div class="text-grey">No se encontraron registros de bovinos.</div>
+            <td colspan="7" class="text-center py-12">
+              <v-avatar color="grey-lighten-4" size="70" class="mb-3">
+                <v-icon size="35" color="grey-lighten-1">ph-magnifying-glass</v-icon>
+              </v-avatar>
+              <div class="text-grey-darken-1 font-weight-bold">No se encontraron bovinos</div>
+              <div class="text-caption text-grey">Intenta ajustar los filtros de búsqueda</div>
             </td>
           </tr>
         </template>
       </Table>
 
-      <div class="pa-4 pt-0">
-        <v-row align="center">
+      <div class="pa-4 border-t bg-grey-lighten-5">
+        <v-row align="center" no-gutters>
           <v-col cols="auto">
-            <v-select 
-              v-model="config.itemsPerPage" 
-              :items="[10, 25, 50]" 
-              label="Ver" 
-              variant="underlined" 
-              density="compact" 
-              hide-details 
-            />
+            <div class="d-flex align-center">
+              <span class="text-caption mr-3">Registros por página:</span>
+              <v-select
+                v-model="config.itemsPerPage"
+                :items="[10, 25, 50]"
+                variant="outlined"
+                density="compact"
+                hide-details
+                style="width: 80px"
+              />
+            </div>
+          </v-col>
+          <v-spacer />
+          <v-col cols="auto">
+            <span class="text-caption text-grey">Total: {{ config.noOfItems }} registros</span>
           </v-col>
         </v-row>
       </div>
     </v-card-text>
   </v-card>
 
-  <CreateEditBovineDialog 
-    v-if="createEditDialog" 
-    v-model="createEditDialog" 
-    :item="selectedItem" 
-    @refresh="getItems" 
+  <CreateEditBovineDialog
+    v-if="createEditDialog"
+    v-model="createEditDialog"
+    :item="selectedItem"
+    @refresh="getItems"
   />
 
-  <RemoveItemConfirmationDialog 
-    v-model="confirmationDialog" 
-    :loading="deleting" 
-    @onConfirm="confirmDelete" 
+  <RemoveItemConfirmationDialog
+    v-model="confirmationDialog"
+    :loading="deleting"
+    @onConfirm="confirmDelete"
   />
 </template>
 
 <style scoped>
 .v-table tbody tr:hover {
-  background-color: #fafafa;
+  background-color: #f8fafc !important;
+  cursor: pointer;
 }
 </style>
