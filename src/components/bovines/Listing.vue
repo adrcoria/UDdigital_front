@@ -3,6 +3,8 @@ import { ref, watch, onMounted, computed } from "vue";
 import Table from "@/app/common/components/Table.vue";
 import ListMenuWithIcon from "@/app/common/components/ListMenuWithIcon.vue";
 import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
+import BovineDetailsDialog from "./Dialogs/BovineDetailsDialog.vue";
+import BovinePhotosDialog from "./Dialogs/BovinePhotosDialog.vue"; // Nuevo Componente
 import CreateEditBovineDialog from "./Dialogs/CreateEditBovineDialog.vue";
 import { bovineService } from "@/app/http/httpServiceProvider";
 import { showErrorAlert, showSuccessAlert } from "@/app/services/alertService";
@@ -26,6 +28,8 @@ const config = ref({
 });
 
 const createEditDialog = ref(false);
+const bovineDetailsDialog = ref(false);
+const bovinePhotosDialog = ref(false); // Estado para el modal de fotos
 const selectedItem = ref<any | null>(null);
 const confirmationDialog = ref(false);
 const itemToDelete = ref<any | null>(null);
@@ -42,11 +46,20 @@ const headers = [
 ];
 
 const actionMenu = [
+  { title: "Ficha de vida", icon: "ph-file-text", value: "view" },
+  { title: "Gestionar Fotos", icon: "ph-camera", value: "photos" }, // Nueva Acción
   { title: "Editar", icon: "ph-pencil", value: "edit" },
   { title: "Eliminar", icon: "ph-trash", value: "delete" },
 ];
 
 /* ------------------ Logic ------------------ */
+
+const formatRaces = (raceAssignments: any[]) => {
+  if (!raceAssignments || raceAssignments.length === 0) return 'N/A';
+  return raceAssignments
+    .map(ra => ra.bovineRace?.name || 'S/R')
+    .join(', ');
+};
 
 const getItems = async () => {
   try {
@@ -60,7 +73,6 @@ const getItems = async () => {
     const response = await bovineService.getBovines(params);
     const resData = response.data.data;
 
-    // Mapeo según estructura del JSON proporcionado
     tableData.value = resData.list || [];
     config.value.noOfItems = resData.total || 0;
     config.value.page = page.value;
@@ -78,8 +90,12 @@ const toggleExpand = (id: string) => {
 };
 
 const onSelectAction = (option: string, item: any) => {
-  if (option === "edit") {
-    selectedItem.value = item;
+  selectedItem.value = item;
+  if (option === "view") {
+    bovineDetailsDialog.value = true;
+  } else if (option === "photos") {
+    bovinePhotosDialog.value = true; // Abrir modal de fotos
+  } else if (option === "edit") {
     createEditDialog.value = true;
   } else if (option === "delete") {
     itemToDelete.value = item;
@@ -142,7 +158,11 @@ onMounted(getItems);
                   {{ item.sex?.name || 'N/A' }}
                 </v-chip>
               </td>
-              <td>{{ item.bovineRace?.name || 'N/A' }}</td>
+              
+              <td class="text-caption">
+                {{ formatRaces(item.raceAssignments) }}
+              </td>
+
               <td>
                 <v-chip size="x-small" :color="item.bovineStatus === 'VIVO' ? 'success' : 'error'" variant="flat">
                   {{ item.bovineStatus }}
@@ -170,7 +190,6 @@ onMounted(getItems);
                           <div class="text-body-2">{{ item.mother?.name || 'No registrado' }}</div>
                         </div>
                       </v-col>
-
                       <v-col cols="12" md="3">
                         <div class="d-flex align-center mb-2">
                           <v-icon size="18" color="primary" class="mr-2">ph-calendar-check</v-icon>
@@ -214,9 +233,7 @@ onMounted(getItems);
                         </div>
                       </v-col>
                     </v-row>
-
                     <v-divider class="my-4"></v-divider>
-
                     <v-row dense align="center">
                       <v-col cols="12" md="4">
                         <div class="text-caption font-weight-bold text-grey mb-1">Responsable / Dueño</div>
@@ -230,12 +247,10 @@ onMounted(getItems);
                           </div>
                         </div>
                       </v-col>
-
                       <v-col cols="12" md="4">
                         <div class="text-caption font-weight-bold text-grey mb-1">Notas y Observaciones</div>
                         <div class="text-body-2 text-italic">{{ item.notes || 'Sin observaciones registradas.' }}</div>
                       </v-col>
-
                       <v-col cols="12" md="4" v-if="item.bovineStatus === 'MUERTO'">
                         <v-alert density="compact" color="error" variant="tonal" icon="ph-skull">
                           <div class="text-caption font-weight-bold">Defunción</div>
@@ -256,7 +271,6 @@ onMounted(getItems);
                 <v-icon size="35" color="grey-lighten-1">ph-magnifying-glass</v-icon>
               </v-avatar>
               <div class="text-grey-darken-1 font-weight-bold">No se encontraron bovinos</div>
-              <div class="text-caption text-grey">Intenta ajustar los filtros de búsqueda</div>
             </td>
           </tr>
         </template>
@@ -267,14 +281,7 @@ onMounted(getItems);
           <v-col cols="auto">
             <div class="d-flex align-center">
               <span class="text-caption mr-3">Registros por página:</span>
-              <v-select
-                v-model="config.itemsPerPage"
-                :items="[10, 25, 50]"
-                variant="outlined"
-                density="compact"
-                hide-details
-                style="width: 80px"
-              />
+              <v-select v-model="config.itemsPerPage" :items="[10, 25, 50]" variant="outlined" density="compact" hide-details style="width: 80px" />
             </div>
           </v-col>
           <v-spacer />
@@ -285,6 +292,19 @@ onMounted(getItems);
       </div>
     </v-card-text>
   </v-card>
+
+  <BovineDetailsDialog
+    v-if="bovineDetailsDialog"
+    v-model="bovineDetailsDialog"
+    :item="selectedItem"
+  />
+
+  <BovinePhotosDialog
+    v-if="bovinePhotosDialog"
+    v-model="bovinePhotosDialog"
+    :item="selectedItem"
+    @refresh="getItems"
+  />
 
   <CreateEditBovineDialog
     v-if="createEditDialog"

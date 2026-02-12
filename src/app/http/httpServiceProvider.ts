@@ -16,6 +16,7 @@ import RoleService from "./services/roleService";
 import LiveStockService from "./services/LivestockService";
 import BovineService from "./services/BovineService";
 import ParameterService from "./services/parameterService";
+import BovinePhotoService from "./services/BovinePhotoService";
 const roleService = new RoleService();
 const ledgerAccountService = new LedgerAccountService();
 const userService = new UserService();
@@ -35,6 +36,7 @@ const companyService = new CompanyService();
 const liveStockService = new LiveStockService();
 const bovineService = new BovineService();
 const parameterService= new ParameterService();
+const bovinePhotoService = new BovinePhotoService();
 
 export {
   ledgerAccountService,
@@ -54,5 +56,6 @@ export {
   roleService,
   liveStockService,
   bovineService,
-  parameterService
+  parameterService,
+  bovinePhotoService
 };
