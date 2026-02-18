@@ -222,50 +222,48 @@ const clearFilters = () => {
   page.value = 1;
   getOperations();
 };
-
 const onExport = async () => {
   try {
     exporting.value = true;
 
-    // Reutilizamos los mismos parámetros que usas en getOperations
+    // EL DETALLE CONSIDERA TODOS LOS FILTROS
     const params = {
       startDate: filtersForm.value.dateFrom || undefined,
       endDate: filtersForm.value.dateTo || undefined,
+      idAccount: filtersForm.value.accountId || undefined,
+      idConceptCategory: filtersForm.value.categoryId || undefined,
+      idConcept: filtersForm.value.conceptId || undefined,
+      idCompany: filtersForm.value.companyId || undefined,
     };
 
     const res = await reportService.exportOperationsExcel(params);
 
-    // Crear un link temporal para descargar el archivo
     const url = window.URL.createObjectURL(new Blob([res.data]));
     const link = document.createElement("a");
     link.href = url;
 
-    // Nombre del archivo con la fecha actual
-    const fileName = `reporte_operaciones_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = `reporte_DETALLE_operaciones_${new Date().toISOString().split('T')[0]}.xlsx`;
     link.setAttribute("download", fileName);
 
     document.body.appendChild(link);
     link.click();
 
-    // Limpieza
     link.remove();
     window.URL.revokeObjectURL(url);
 
-    showSuccessAlert("Excel generado correctamente");
+    showSuccessAlert("Detalle generado con filtros aplicados");
   } catch (error) {
-    console.error("Export error:", error);
-    showErrorAlert("No se pudo exportar el archivo");
+    showErrorAlert("No se pudo exportar el detalle");
   } finally {
     exporting.value = false;
   }
 };
 
-
 const onExportSummary = async () => {
   try {
     exporting.value = true;
 
-    // Reutilizamos los mismos parámetros que usas en getOperations
+    // EL RESUMEN SOLO CONSIDERA FECHAS (SUMATORIA GLOBAL)
     const params = {
       startDate: filtersForm.value.dateFrom || undefined,
       endDate: filtersForm.value.dateTo || undefined,
@@ -273,30 +271,28 @@ const onExportSummary = async () => {
 
     const res = await reportService.exportOperationsExcelSummary(params);
 
-    // Crear un link temporal para descargar el archivo
     const url = window.URL.createObjectURL(new Blob([res.data]));
     const link = document.createElement("a");
     link.href = url;
 
-    // Nombre del archivo con la fecha actual
-    const fileName = `reporte_operaciones_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = `reporte_RESUMEN_global_${new Date().toISOString().split('T')[0]}.xlsx`;
     link.setAttribute("download", fileName);
 
     document.body.appendChild(link);
     link.click();
 
-    // Limpieza
     link.remove();
     window.URL.revokeObjectURL(url);
 
-    showSuccessAlert("Excel generado correctamente");
+    showSuccessAlert("Resumen global generado (Solo fechas)");
   } catch (error) {
-    console.error("Export error:", error);
-    showErrorAlert("No se pudo exportar el archivo");
+    showErrorAlert("No se pudo exportar el resumen");
   } finally {
     exporting.value = false;
   }
 };
+
+
 const onExportSummaryAll = async () => {
   try {
     exporting.value = true;
@@ -655,7 +651,6 @@ const confirmDelete = async () => {
           <v-btn color="primary" prepend-icon="ph-plus" @click="onCreate">
             Registrar operación
           </v-btn>
-
           <v-menu v-if="canManageAll()" location="bottom end" transition="slide-y-transition">
             <template v-slot:activator="{ props }">
               <v-btn variant="outlined" color="success" prepend-icon="ph-file-xls" append-icon="ph-caret-down"
@@ -664,19 +659,30 @@ const confirmDelete = async () => {
               </v-btn>
             </template>
 
-            <v-list density="comfortable" elevation="4">
+            <v-list density="comfortable" elevation="4" width="280">
               <v-list-item @click="onExport" prepend-icon="ph-list-bullets">
-                <v-list-item-title>Detalle de operaciones</v-list-item-title>
+                <v-list-item-title class="font-weight-bold">Detalle de operaciones</v-list-item-title>
+                <v-list-item-subtitle class="text-primary">
+                  <v-icon size="12">ph-funnel</v-icon> Considera filtros actuales
+                </v-list-item-subtitle>
               </v-list-item>
 
+              <v-divider></v-divider>
+
               <v-list-item @click="onExportSummary" prepend-icon="ph-chart-pie">
-                <v-list-item-title>Resumen de operaciones</v-list-item-title>
+                <v-list-item-title class="font-weight-bold">Consolidado por empresa</v-list-item-title>
+                <v-list-item-subtitle class="text-grey">
+                  <v-icon size="12">ph-calendar</v-icon> Solo rango de fechas
+                </v-list-item-subtitle>
               </v-list-item>
 
               <v-divider></v-divider>
 
               <v-list-item @click="onExportSummaryAll" prepend-icon="ph-files" color="success">
-                <v-list-item-title ">Reporte consolidado</v-list-item-title>
+                <v-list-item-title class="font-weight-bold">Consolidado agroindustrias</v-list-item-title>
+                <v-list-item-subtitle class="text-grey">
+                  <v-icon size="12">ph-calendar</v-icon> Solo rango de fechas
+                </v-list-item-subtitle>
               </v-list-item>
             </v-list>
           </v-menu>
@@ -699,21 +705,26 @@ const confirmDelete = async () => {
             </v-col>
 
             <v-col cols="12" sm="4" md="2">
-              <v-select label="Cuenta" :items="accounts" item-title="name" item-value="id"
+              <v-autocomplete label="Cuenta" :items="accounts" item-title="name" item-value="id"
                 v-model="filtersForm.accountId" clearable :loading="loadingAccounts" variant="outlined"
-                density="comfortable" hide-details bg-color="white" />
+                density="comfortable" hide-details bg-color="white" no-data-text="Sin resultados"
+                :menu-props="{ maxHeight: 300 }" auto-select-first />
             </v-col>
 
             <v-col cols="12" sm="4" md="2">
-              <v-select label="Categoría" :items="categories" item-title="name" item-value="id"
+              <v-autocomplete label="Categoría" :items="categories" item-title="name" item-value="id"
                 v-model="filtersForm.categoryId" clearable :loading="loadingCategories" variant="outlined"
-                density="comfortable" hide-details bg-color="white" />
+                density="comfortable" hide-details bg-color="white" no-data-text="Sin resultados"
+                :menu-props="{ maxHeight: 300 }" auto-select-first />
+
             </v-col>
 
             <v-col cols="12" sm="4" md="2">
-              <v-select label="Concepto" :items="concepts" item-title="name" item-value="id"
+              <v-autocomplete label="Concepto" :items="concepts" item-title="name" item-value="id"
                 v-model="filtersForm.conceptId" :disabled="!filtersForm.categoryId" clearable :loading="loadingConcepts"
-                variant="outlined" density="comfortable" hide-details bg-color="white" />
+                variant="outlined" density="comfortable" hide-details :menu-props="{ maxHeight: 300 }" bg-color="white"
+                no-data-text="Sin resultados" auto-select-first />
+
             </v-col>
 
             <v-col cols="12" md="2" class="d-flex ga-2 pt-md-0 pt-4">

@@ -5,7 +5,8 @@ import {
   conceptService,
   conceptCategoryService,
   operationsService,
-  operationImageService
+  operationImageService,
+  userService
 } from "@/app/http/httpServiceProvider";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 
@@ -34,6 +35,9 @@ const deletingConcept = ref(false);
 const selectedFiles = ref<File[]>([]);
 const uploadingFiles = ref(false);
 
+const users = ref<any[]>([]);
+const loadingUsers = ref(false);
+
 /* ---------- Form ---------- */
 const form = ref({
   accountId: "",
@@ -43,7 +47,8 @@ const form = ref({
   description: "",
   quantity: 1,
   amount: 0,
-  operationDate: "" // SOLO FECHA: YYYY-MM-DD
+  operationDate: "",
+  idResponsible: ""
 });
 
 const resetForm = () => {
@@ -55,7 +60,8 @@ const resetForm = () => {
     description: "",
     quantity: 1,
     amount: 0,
-    operationDate: ""
+    operationDate: "",
+    idResponsible: ""
   };
   selectedFiles.value = [];
 };
@@ -94,6 +100,10 @@ const editingCategory = ref<any | null>(null);
 const showConceptDialog = ref(false);
 const editingConcept = ref<any | null>(null);
 
+const responsibleRules = computed(() =>
+  touched.value.idResponsible ? [req] : []
+);
+
 /* ---------- Reglas (reactivas) ---------- */
 const touched = ref({
   accountId: false,
@@ -103,7 +113,8 @@ const touched = ref({
   quantity: false,
   amount: false,
   operationDate: false,
-  measurement: false
+  measurement: false,
+  idResponsible: false
 });
 
 const req = (v: any) => !!v || "Obligatorio";
@@ -128,6 +139,7 @@ const isFormValid = computed(() => {
   return (
     !!form.value.accountId &&
     !!form.value.categoryId &&
+    !!form.value.idResponsible &&
     !!form.value.conceptId &&
     !!form.value.description &&
     Number(form.value.quantity) > 0 &&
@@ -193,6 +205,18 @@ const polarityAlertType = computed(() => {
   if (!selectedConcept.value) return "info";
   return selectedConcept.value.polarity === 1 ? "success" : "warning";
 });
+
+const reloadUsers = async () => {
+  loadingUsers.value = true;
+  try {
+    const response = await userService.getUsers();
+    users.value = response.data.data;
+  } catch {
+    showErrorAlert("Error cargando usuarios");
+  } finally {
+    loadingUsers.value = false;
+  }
+};
 
 /* ---------- Loaders catálogos ---------- */
 const reloadAccounts = async () => {
@@ -268,6 +292,7 @@ onMounted(async () => {
   try {
     await reloadAccounts();
     await reloadCategories();
+    await reloadUsers();
   } catch {
     showErrorAlert("Error cargando catálogos");
   }
@@ -328,6 +353,7 @@ watch(
         quantity: op.quantity || 1,
         amount: Number(op.amount),
         operationDate: op.operationDate?.substring(0, 10),
+        idResponsible: op.idResponsible || ""
       };
 
       // 1️⃣ Cargar categorías por cuenta
@@ -485,6 +511,7 @@ const save = async () => {
     const payload = {
       idAccount: form.value.accountId,
       idConcept: form.value.conceptId,
+      idResponsible: form.value.idResponsible,
       description: form.value.description,
       amount: Number(form.value.amount),
       quantity: Number(form.value.quantity),
@@ -534,8 +561,8 @@ const save = async () => {
       <v-card-text>
         <div class="row">
           <v-autocomplete v-model="form.accountId" label="Cuenta *" :items="accounts" item-title="name" item-value="id"
-            :loading="loadingAccounts" :rules="accountRules" @blur="touched.accountId = true" class="flex-1 text-uppercase" clearable
-            auto-select-first />
+            :loading="loadingAccounts" :rules="accountRules" @blur="touched.accountId = true"
+            class="flex-1 text-uppercase" clearable auto-select-first />
 
           <!-- Acción principal -->
           <v-btn icon variant="text" @click="newAccount" aria-label="Agregar cuenta">
@@ -652,6 +679,13 @@ const save = async () => {
         <v-text-field type="date" label="Fecha *" v-model="form.operationDate" :rules="dateRules"
           @blur="touched.operationDate = true" />
 
+
+        <v-autocomplete v-model="form.idResponsible" label="Responsable *" :items="users" item-title="name"
+          item-value="id" :loading="loadingUsers" :rules="responsibleRules" @blur="touched.idResponsible = true"
+          class="text-uppercase" clearable auto-select-first>
+          
+        </v-autocomplete>
+
         <v-divider class="my-4"></v-divider>
         <div class="text-subtitle-2 mb-2">Documentos adjuntos (opcional)</div>
 
@@ -711,7 +745,7 @@ const save = async () => {
 }
 
 /* 1. Forzar texto en mayúsculas en el input mientras escribes */
-:deep(.v-field__input), 
+:deep(.v-field__input),
 :deep(.v-field__input input) {
   text-transform: uppercase !important;
 }
@@ -722,10 +756,7 @@ const save = async () => {
   text-transform: uppercase !important;
 }
 
-/* 3. Forzar las etiquetas y títulos de los listados desplegables */
-:deep(.v-list-item-title) {
-  text-transform: uppercase !important;
-}
+
 
 /* 4. Clase utilitaria para el template */
 .text-uppercase {

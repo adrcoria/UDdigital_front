@@ -107,7 +107,7 @@ onMounted(() => {
         
         <div class="text-center z-10 px-6">
           <h1 class="text-h2 font-weight-bold mb-2 title-shadow">BIENVENIDOS</h1>
-          <p class="text-h5 opacity-70">Plataforma Digital "El Arteaguense"</p>
+          <p class="text-h5 opacity-70">Plataforma Digital <br />"Agroindustrias el Arteaguense"</p>
         </div>
 
         <div class="visual-footer">
@@ -152,7 +152,7 @@ onMounted(() => {
               Iniciar sesión
             </v-btn>
 
-            <div class="version-info">Versión 1.1.0</div>
+            <div class="version-info">Versión 1.2.0</div>
           </v-form>
         </div>
       </div>
