@@ -6,7 +6,7 @@ import {
 } from "@/components/layouts/types";
 
 // Importamos el objeto ROLES para usar los UUIDs originales
-import { ROLES,getUserRole  } from "@/app/utils/authHelper";
+import { ROLES, getUserRole } from "@/app/utils/authHelper";
 console.log("ROL ACTUAL:", getUserRole());
 console.log("ROL SUPER:", ROLES.SUPER_USER);
 
@@ -66,6 +66,12 @@ export const menuItems: MenuItemType[] = [
         link: "/administracion/ingresos-egresos",
         roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
       }
+      ,
+      {
+        label: "Reportes", // SECCIÓN INTEGRADA
+        link: "/administracion/reportes",
+        roles: [ROLES.SUPER_USER]
+      }
     ]
   },
   {
@@ -74,7 +80,7 @@ export const menuItems: MenuItemType[] = [
     id: "sidebarLivestock",
     roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA],
     subMenu: [
-       {
+      {
         label: "Bovinos", // Nueva opción para el inventario
         link: "/ganaderia/bovinos",
         roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]

@@ -56,7 +56,7 @@ const pagesRoutes = [
  * ====================================================== */
 const configRoutes = [
   {
-    path: "/configuraciones/usuarios", 
+    path: "/configuraciones/usuarios",
     name: "Usuarios",
     component: () => import("@/views/usuarios/Usuarios.vue"),
     meta: {
@@ -66,7 +66,7 @@ const configRoutes = [
     }
   },
   {
-    path: "/configuraciones/empresas", 
+    path: "/configuraciones/empresas",
     name: "Empresas",
     component: () => import("@/views/empresas/Empresas.vue"),
     meta: {
@@ -95,7 +95,7 @@ const livestockRoutes = [
     path: "/ganaderia/bovinos",
     name: "LivestockBovines",
     // Esta es la página que creamos con el Breadcrumb y el BovineIndex
-    component: () => import("@/views/livestock/BovinePage.vue"), 
+    component: () => import("@/views/livestock/BovinePage.vue"),
     meta: {
       title: "Administración de Ganado",
       authRequired: true,
@@ -111,6 +111,17 @@ const adminRoutes = [
     component: () => import("@/views/contabilidad/Contabilidad.vue"),
     meta: {
       title: "Ingresos y egresos",
+      authRequired: true,
+      layout: DefaultLayout
+    }
+  },
+  {
+    path: "/administracion/reportes", // NUEVA RUTA
+    name: "Reportes",
+    // Apunta a la nueva vista que creamos
+    component: () => import("@/views/reportes/Reportes.vue"),
+    meta: {
+      title: "Centro de Reportes",
       authRequired: true,
       layout: DefaultLayout
     }

@@ -651,7 +651,7 @@ const confirmDelete = async () => {
           <v-btn color="primary" prepend-icon="ph-plus" @click="onCreate">
             Registrar operación
           </v-btn>
-          <v-menu v-if="canManageAll()" location="bottom end" transition="slide-y-transition">
+          <!-- <v-menu v-if="canManageAll()" location="bottom end" transition="slide-y-transition">
             <template v-slot:activator="{ props }">
               <v-btn variant="outlined" color="success" prepend-icon="ph-file-xls" append-icon="ph-caret-down"
                 :loading="exporting" v-bind="props">
@@ -685,7 +685,7 @@ const confirmDelete = async () => {
                 </v-list-item-subtitle>
               </v-list-item>
             </v-list>
-          </v-menu>
+          </v-menu> -->
         </v-col>
       </v-row>
     </v-card-title>

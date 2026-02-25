@@ -6,8 +6,16 @@ const http = new HttpService();
 export default class LedgerAccountService {
   private basePath = "/account";
 
-  async getAccounts() {
-    return http.get(`${this.basePath}`);
+  // async getAccounts() {
+  //   return http.get(`${this.basePath}`);
+  // }
+
+ 
+
+  async getAccounts(companyId?: string) {
+    // Si idCompany existe, se envía como parámetro de consulta
+    const params = companyId ? { idCompany: companyId } : {};
+    return http.getget(`${this.basePath}`, { params });
   }
 
   async getAccountById(id: string) {
