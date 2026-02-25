@@ -33,6 +33,26 @@ onMounted(async () => {
 });
 
 /* ------------------ Watchers Jerárquicos ------------------ */
+
+watch(() => props.modelValue.reportType, (newType) => {
+  if (newType) {
+    emit('update:modelValue', {
+      ...props.modelValue,
+      companyId: null,
+      accountId: null,
+      categoryId: null,
+      conceptId: null,
+      // Mantenemos las fechas y el tipo recién seleccionado
+      reportType: newType 
+    });
+    
+    // Limpiamos los catálogos cargados en memoria
+    catalogs.value.accounts = [];
+    catalogs.value.categories = [];
+    catalogs.value.concepts = [];
+  }
+});
+
 watch(() => props.modelValue.companyId, async (newId) => {
   emit('update:modelValue', { ...props.modelValue, accountId: null, categoryId: null, conceptId: null });
   catalogs.value.accounts = [];
