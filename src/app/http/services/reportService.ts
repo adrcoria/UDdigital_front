@@ -10,7 +10,7 @@ export default class ReportService {
     endDate?: string;
   }) {
     // Es fundamental el responseType: 'blob' para archivos binarios
-    return http.getget(`${this.basePath}/operations/excel`, {
+    return http.getget(`${this.basePath}/operations/export`, {
       params,
       responseType: 'blob'
     });
