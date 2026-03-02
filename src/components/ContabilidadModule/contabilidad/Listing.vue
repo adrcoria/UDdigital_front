@@ -57,8 +57,10 @@ const canDeleteItem = (operationDate: string | Date) => {
 const getActionMenu = (item: any) => {
   const menu = [{ title: "Archivos", icon: "ph-paperclip", value: "files" }];
 
-  // Si tiene permiso de borrar, añadimos la opción al menú
+  // Solo añadimos Editar y Eliminar si el usuario tiene permiso (Capturista hoy o Admin/Super)
   if (canDeleteItem(item.operationDate)) {
+    // Insertamos Editar al inicio o después de archivos
+    menu.push({ title: "Editar", icon: "ph-pencil-line", value: "edit" });
     menu.push({ title: "Eliminar", icon: "ph-trash", value: "delete" });
   }
 
@@ -598,6 +600,9 @@ const onCreate = () => {
 const onSelectAction = (action: string, item: any) => {
   if (action === "files") {
     openFilesDialog(item);
+  } else if (action === "edit") {
+    selectedOperation.value = item;
+    createDialog.value = true;
   } else if (action === "delete") {
     confirmation.value = item;
     confirmationDialog.value = true;
@@ -651,41 +656,6 @@ const confirmDelete = async () => {
           <v-btn color="primary" prepend-icon="ph-plus" @click="onCreate">
             Registrar operación
           </v-btn>
-          <!-- <v-menu v-if="canManageAll()" location="bottom end" transition="slide-y-transition">
-            <template v-slot:activator="{ props }">
-              <v-btn variant="outlined" color="success" prepend-icon="ph-file-xls" append-icon="ph-caret-down"
-                :loading="exporting" v-bind="props">
-                Exportar
-              </v-btn>
-            </template>
-
-            <v-list density="comfortable" elevation="4" width="280">
-              <v-list-item @click="onExport" prepend-icon="ph-list-bullets">
-                <v-list-item-title class="font-weight-bold">Detalle de operaciones</v-list-item-title>
-                <v-list-item-subtitle class="text-primary">
-                  <v-icon size="12">ph-funnel</v-icon> Considera filtros actuales
-                </v-list-item-subtitle>
-              </v-list-item>
-
-              <v-divider></v-divider>
-
-              <v-list-item @click="onExportSummary" prepend-icon="ph-chart-pie">
-                <v-list-item-title class="font-weight-bold">Consolidado por empresa</v-list-item-title>
-                <v-list-item-subtitle class="text-grey">
-                  <v-icon size="12">ph-calendar</v-icon> Solo rango de fechas
-                </v-list-item-subtitle>
-              </v-list-item>
-
-              <v-divider></v-divider>
-
-              <v-list-item @click="onExportSummaryAll" prepend-icon="ph-files" color="success">
-                <v-list-item-title class="font-weight-bold">Consolidado agroindustrias</v-list-item-title>
-                <v-list-item-subtitle class="text-grey">
-                  <v-icon size="12">ph-calendar</v-icon> Solo rango de fechas
-                </v-list-item-subtitle>
-              </v-list-item>
-            </v-list>
-          </v-menu> -->
         </v-col>
       </v-row>
     </v-card-title>

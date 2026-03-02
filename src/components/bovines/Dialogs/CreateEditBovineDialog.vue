@@ -92,6 +92,18 @@ const filteredPurposes = computed(() => {
     return lists.value.purposes;
 });
 
+const isCompra = computed(() => {
+    if (!form.value.bovineOriginId || !lists.value.origins.length) return false;
+    const origin = lists.value.origins.find((o: any) => o.id === form.value.bovineOriginId);
+    return origin?.name.toUpperCase().trim() === 'COMPRA';
+});
+
+const isHato = computed(() => {
+    if (!form.value.bovineOriginId || !lists.value.origins.length) return false;
+    const origin = lists.value.origins.find((o: any) => o.id === form.value.bovineOriginId);
+    return origin?.name.toUpperCase().includes('HATO');
+});
+
 /* ------------------ Validaciones ------------------ */
 const rules = {
     required: (v: any) => !!v || "Este campo es obligatorio",
@@ -114,7 +126,7 @@ const rules = {
 watch(() => form.value.birthWeight, () => onChangePrecio());
 
 watch(() => form.value.bovineOriginId, (newId) => {
-    if (isEditing.value) return; 
+    if (isEditing.value) return;
     const origin = lists.value.origins.find((o: any) => o.id === newId);
     const originName = origin?.name.toUpperCase() || "";
     if (originName !== 'COMPRA') form.value.purchaseValue = 0;
@@ -240,7 +252,7 @@ const save = async () => {
 
     try {
         loading.value = true;
-        
+
         // CONSTRUCCIÓN DEL PAYLOAD LIMPIO (Evita error 400 por objetos anidados)
         const finalPayload = {
             siniigaEarTag: form.value.siniigaEarTag,
@@ -282,8 +294,22 @@ const save = async () => {
         emit("refresh");
         dialog.value = false;
     } catch (error: any) {
-        const msg = error.response?.data?.message;
-        showErrorAlert(Array.isArray(msg) ? msg[0] : msg || "Error al procesar la solicitud");
+        const serverResponse = error.response?.data;
+        
+        if (serverResponse && Array.isArray(serverResponse.message)) {
+            // 2. Mapeamos los errores para obtener solo los textos de las constraints
+            // Como cada objeto tiene un sub-objeto 'constraints', extraemos sus valores
+            const validationErrors = serverResponse.message.map((err: any) => {
+                return Object.values(err.constraints).join(", ");
+            });
+
+            // 3. Mostramos los errores. Puedes unirlos con un salto de línea o mostrar el primero
+            showErrorAlert(validationErrors.join(" | "));
+        } else {
+            // 4. Error genérico si la estructura no es la esperada
+            const msg = serverResponse?.message || error.message || "Error al procesar la solicitud";
+            showErrorAlert(Array.isArray(msg) ? msg[0] : msg);
+        }
     } finally {
         loading.value = false;
     }
@@ -296,7 +322,7 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
 <template>
     <v-dialog v-model="dialog" max-width="1000px" scrollable persistent>
         <v-card v-if="dialog">
-            
+
             <v-overlay v-model="isEditing" contained class="align-center justify-center" persistent scrim="white">
                 <div class="text-center">
                     <v-progress-circular indeterminate color="primary" size="64" width="6" class="mb-4" />
@@ -325,8 +351,8 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                         <v-col cols="12" md="3"><v-text-field label="Peso Inicial (kg) *" type="number"
                                 v-model.number="form.birthWeight" :rules="[rules.required]"
                                 variant="outlined" /></v-col>
-                        <v-col style="display: none;" cols="12" md="3"><v-text-field label="GDP" v-model="form.gdpTotal" variant="outlined"
-                                readonly bg-color="grey-lighten-4" /></v-col>
+                        <v-col style="display: none;" cols="12" md="3"><v-text-field label="GDP" v-model="form.gdpTotal"
+                                variant="outlined" readonly bg-color="grey-lighten-4" /></v-col>
                         <v-col cols="12" md="3"><v-text-field label="Peso Neto" v-model="form.netWeight"
                                 variant="outlined" readonly suffix="KG" bg-color="grey-lighten-4" /></v-col>
                         <v-col cols="12" md="6">
@@ -354,8 +380,7 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                                 :items="lists.origins" item-title="name" item-value="id" :rules="[rules.required]"
                                 variant="outlined" /></v-col>
 
-                        <v-col cols="12"
-                            v-if="lists.origins.find(o => o.id === form.bovineOriginId)?.name.toUpperCase() === 'COMPRA'">
+                        <v-col cols="12" v-if="isCompra">
                             <v-text-field label="Valor de Compra *" type="number" v-model.number="form.purchaseValue"
                                 :rules="[rules.purchaseRequired]" variant="outlined" prefix="$" color="success" />
                         </v-col>
@@ -364,8 +389,7 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                                 :items="lists.owners" :item-title="i => `${i.firstName} ${i.lastName}`" item-value="id"
                                 :rules="[rules.required]" variant="outlined" /></v-col>
 
-                        <v-col cols="12"
-                            v-if="lists.origins.find(o => o.id === form.bovineOriginId)?.name.toUpperCase().includes('HATO')">
+                        <v-col cols="12" v-if="isHato">
                             <v-row dense>
                                 <v-col cols="12" md="6"><v-autocomplete label="Padre" v-model="form.fatherId"
                                         :items="listMales" item-title="name" item-value="id" variant="outlined"
@@ -388,8 +412,8 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                             <v-col cols="12" md="6"><v-autocomplete label="Causa de Muerte *"
                                     v-model="form.deathCauseId" :items="lists.deathCauses" item-title="name"
                                     item-value="id" :rules="[rules.required]" variant="outlined" /></v-col>
-                            <v-col cols="12" md="6"><v-text-field label="Comentarios de muerte*" v-model="form.deathComments"
-                                    :rules="[rules.required]" variant="outlined" /></v-col>
+                            <v-col cols="12" md="6"><v-text-field label="Comentarios de muerte*"
+                                    v-model="form.deathComments" :rules="[rules.required]" variant="outlined" /></v-col>
                         </template>
 
                         <v-col cols="12">

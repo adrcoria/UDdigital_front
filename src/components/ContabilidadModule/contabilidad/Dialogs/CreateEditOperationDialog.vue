@@ -298,93 +298,107 @@ onMounted(async () => {
   }
 });
 
-/* ---------- Watch: categoría -> conceptos ---------- */
-watch(
-  () => form.value.categoryId,
-  async (newId) => {
-    form.value.conceptId = ""; // Limpia concepto al cambiar categoría
+/* ---------- Watchers Modificados ---------- */
+/* ---------- Watchers con Debugging ---------- */
 
-    if (!newId) {
-      concepts.value = [];
+// 1. Watcher principal: Hidratación del formulario
+watch(
+  () => props.operation,
+  async (op) => {
+    if (!op) {
+      resetForm();
       return;
     }
 
     try {
+      // 1️⃣ Cargar categorías según la cuenta seleccionada
+      if (op.account?.id) {
+        await reloadCategories(op.account.id);
+      }
+
+      // 2️⃣ Cargar conceptos según la categoría
+      if (op.concept?.conceptCategory?.id) {
+        const res = await conceptService.getConcepts(
+          op.concept.conceptCategory.id
+        );
+        concepts.value = res.data.data;
+      }
+
+      // 3️⃣ Mapear correctamente usando la estructura REAL del response
+      form.value = {
+        accountId: op.account?.id || "",
+        categoryId: op.concept?.conceptCategory?.id || "",
+        conceptId: op.concept?.id || "",
+        idResponsible: op.responsible?.id || "",
+        description: op.description || "",
+        quantity: Number(op.quantity) || 1,
+        amount: Number(op.amount) || 0,
+        measurement: op.measurement || "GLOBAL",
+        operationDate: op.operationDate
+          ? op.operationDate.substring(0, 10)
+          : "",
+      };
+
+    } catch (error) {
+      showErrorAlert("Error cargando datos para edición");
+    }
+  },
+  { immediate: true }
+);
+
+// 2. Watcher de Cuenta
+watch(
+  () => form.value.accountId,
+  async (newId, oldId) => {
+    console.log(`DEBUG: [form.accountId] cambió de ${oldId} a ${newId}`);
+
+    // Si hay un oldId y el nuevo es distinto, el usuario lo cambió a mano
+    if (oldId && newId !== oldId) {
+      console.log("DEBUG: Cambio manual de cuenta detectado, limpiando hijos.");
+      form.value.categoryId = "";
+      form.value.conceptId = "";
+      concepts.value = [];
+    }
+
+    if (!newId) return;
+
+    try {
+      loadingCategories.value = true;
+      const res = await conceptCategoryService.getConceptCategories(newId);
+      categories.value = res.data.data;
+    } catch (e) {
+      console.error("DEBUG ERROR: Fallo al recargar categorías por cambio de cuenta", e);
+    } finally {
+      loadingCategories.value = false;
+    }
+  }
+);
+
+// 3. Watcher de Categoría
+watch(
+  () => form.value.categoryId,
+  async (newId, oldId) => {
+    console.log(`DEBUG: [form.categoryId] cambió de ${oldId} a ${newId}`);
+
+    if (oldId && newId !== oldId) {
+      console.log("DEBUG: Cambio manual de categoría detectado, limpiando conceptos.");
+      form.value.conceptId = "";
+    }
+
+    if (!newId) return;
+
+    try {
       loadingConcepts.value = true;
-      const res = await conceptService.getConcepts(newId); // ✅ manda el id
+      const res = await conceptService.getConcepts(newId);
       concepts.value = res.data.data;
-    } catch {
-      showErrorAlert("No se pudieron cargar los conceptos");
+    } catch (e) {
+      console.error("DEBUG ERROR: Fallo al recargar conceptos por cambio de categoría", e);
     } finally {
       loadingConcepts.value = false;
     }
   }
 );
 
-watch(
-  () => form.value.accountId,
-  async (newAccountId) => {
-    form.value.categoryId = "";
-    form.value.conceptId = "";
-    categories.value = [];
-    concepts.value = [];
-
-    if (!newAccountId) return;
-
-    try {
-      await reloadCategories(newAccountId);
-    } catch {
-      showErrorAlert("No se pudieron cargar las categorías");
-    }
-  }
-);
-
-
-/* ---------- Watch: editar operación ---------- */
-watch(
-  () => props.operation,
-  async (op) => {
-    if (op) {
-      form.value = {
-        accountId: op.idAccount,
-        categoryId: "",
-        conceptId: "",
-        description: op.description,
-        quantity: op.quantity || 1,
-        amount: Number(op.amount),
-        operationDate: op.operationDate?.substring(0, 10),
-        idResponsible: op.idResponsible || ""
-      };
-
-      // 1️⃣ Cargar categorías por cuenta
-      await reloadCategories(op.idAccount);
-
-      // 2️⃣ Setear categoría
-      form.value.categoryId = op.concept?.idConceptCategory || "";
-
-      // 3️⃣ Cargar conceptos por categoría
-      if (form.value.categoryId) {
-        const res = await conceptService.getConcepts(form.value.categoryId);
-        concepts.value = res.data.data;
-        form.value.conceptId = op.idConcept;
-      }
-    }
-    else {
-      resetForm();
-      concepts.value = [];
-      touched.value = {
-        accountId: false,
-        categoryId: false,
-        conceptId: false,
-        description: false,
-        quantity: false,
-        amount: false,
-        operationDate: false
-      };
-    }
-  },
-  { immediate: true }
-);
 
 /* ---------- Acciones Cuenta ---------- */
 
@@ -489,7 +503,7 @@ const confirmDeleteConcept = async () => {
 
 /* ---------- Guardar ---------- */
 const save = async () => {
-  // Reactivo = no “mensaje al final”. Aquí solo marco touched para que pinte errores.
+  // Marcamos todos los campos como tocados para validación visual
   touched.value = {
     accountId: true,
     categoryId: true,
@@ -498,16 +512,18 @@ const save = async () => {
     quantity: true,
     amount: true,
     measurement: true,
-    operationDate: true
+    operationDate: true,
+    idResponsible: true
   };
 
-  let operationId: string = "";
-
-  if (!isFormValid.value) return;
+  if (!isFormValid.value) {
+    return showErrorAlert("Por favor, completa los campos requeridos.");
+  }
 
   try {
     loading.value = true;
 
+    // Construcción del payload limpio
     const payload = {
       idAccount: form.value.accountId,
       idConcept: form.value.conceptId,
@@ -516,37 +532,33 @@ const save = async () => {
       amount: Number(form.value.amount),
       quantity: Number(form.value.quantity),
       measurement: form.value.measurement,
+      // Formato de fecha ISO para el backend
       operationDate: `${form.value.operationDate}T00:00:00`
     };
 
-    if (isEdit.value && props.operation) {
+    if (isEdit.value && props.operation?.id) {
+      /* ---------- MODO EDICIÓN ---------- */
       await operationsService.updateOperation(props.operation.id, payload);
-      showSuccessAlert("Operación actualizada");
+      showSuccessAlert("Operación actualizada correctamente");
     } else {
+      /* ---------- MODO CREACIÓN ---------- */
       const res = await operationsService.createOperation(payload);
-      showSuccessAlert("Operación registrada");
-      operationId = res.data.data.id;
+      const newOperationId = res.data.data.id;
 
+      // Solo subimos documentos si es una creación nueva
       if (selectedFiles.value.length > 0) {
-        await uploadDocuments(operationId);
+        await uploadDocuments(newOperationId);
       }
+      showSuccessAlert("Operación registrada correctamente");
     }
 
     emit("refresh");
     dialog.value = false;
     resetForm();
-    concepts.value = [];
-    touched.value = {
-      accountId: false,
-      categoryId: false,
-      conceptId: false,
-      description: false,
-      quantity: false,
-      amount: false,
-      operationDate: false
-    };
-  } catch {
-    showErrorAlert("Error al guardar operación");
+  } catch (error: any) {
+    // Captura de errores de validación del servidor (Constraints)
+    const serverMsg = error.response?.data?.message;
+    showErrorAlert(Array.isArray(serverMsg) ? serverMsg[0] : serverMsg || "Error al procesar la operación");
   } finally {
     loading.value = false;
   }
@@ -683,24 +695,26 @@ const save = async () => {
         <v-autocomplete v-model="form.idResponsible" label="Responsable *" :items="users" item-title="name"
           item-value="id" :loading="loadingUsers" :rules="responsibleRules" @blur="touched.idResponsible = true"
           class="text-uppercase" clearable auto-select-first>
-          
+
         </v-autocomplete>
+        <template v-if="!isEdit">
 
-        <v-divider class="my-4"></v-divider>
-        <div class="text-subtitle-2 mb-2">Documentos adjuntos (opcional)</div>
 
-        <v-file-input v-model="selectedFiles" label="Seleccionar documentos" prepend-icon="mdi-paperclip"
-          variant="outlined" density="comfortable" multiple chips counter show-size accept="image/*,application/pdf"
-          :loading="uploadingFiles" hint="Puedes subir imágenes o PDFs" persistent-hint>
-          <template v-slot:selection="{ fileNames }">
-            <template v-for="(fileName, index) in fileNames" :key="fileName">
-              <v-chip size="small" label color="primary" class="me-2" closable @click:close="removeFile(index)">
-                {{ fileName }}
-              </v-chip>
+          <v-divider class="my-4"></v-divider>
+          <div class="text-subtitle-2 mb-2">Documentos adjuntos (opcional)</div>
+
+          <v-file-input v-model="selectedFiles" label="Seleccionar documentos" prepend-icon="mdi-paperclip"
+            variant="outlined" density="comfortable" multiple chips counter show-size accept="image/*,application/pdf"
+            :loading="uploadingFiles" hint="Puedes subir imágenes o PDFs" persistent-hint>
+            <template v-slot:selection="{ fileNames }">
+              <template v-for="(fileName, index) in fileNames" :key="fileName">
+                <v-chip size="small" label color="primary" class="me-2" closable @click:close="removeFile(index)">
+                  {{ fileName }}
+                </v-chip>
+              </template>
             </template>
-          </template>
-        </v-file-input>
-
+          </v-file-input>
+        </template>
       </v-card-text>
 
       <v-card-actions>

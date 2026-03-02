@@ -102,6 +102,17 @@ const livestockRoutes = [
       layout: DefaultLayout
     }
   }
+  ,
+  {
+    path: "/ganaderia/engorda",
+    name: "LivestockEngorda",
+    component: () => import("@/views/loteEngorda/LoteEngoarda.vue"),
+    meta: {
+      title: "Módulo de Engorda",
+      authRequired: true,
+      layout: DefaultLayout
+    }
+  }
 ];
 
 const adminRoutes = [

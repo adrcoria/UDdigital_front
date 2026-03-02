@@ -90,6 +90,11 @@ export const menuItems: MenuItemType[] = [
         link: "/ganaderia/catalogos",
         roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
       },
+      { 
+        label: 'Módulo de Engorda', 
+        link: '/ganaderia/engorda',
+        roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA] 
+      },
     ]
   }
 ];
