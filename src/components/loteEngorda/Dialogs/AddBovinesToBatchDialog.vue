@@ -17,29 +17,26 @@ const search = ref("");
 const availableBovines = ref<any[]>([]);
 const selectedBovineIds = ref<string[]>([]);
 
+
 const loadAvailableBovines = async () => {
   try {
     loading.value = true;
     
+    // Mantenemos tus parámetros obligatorios
     const params = { page: 1, limit: 1000 };
     const res = await bovineService.getBovines(params);
     
-    // Lista completa desde el response de tu API
+    // Acceso a la lista según tu estructura
     const allBovines = res.data?.data?.list || [];
 
-    /**
-     * FILTRO DE DISPONIBILIDAD TOTAL:
-     * Un animal solo está disponible si NO tiene un idBatch asignado.
-     * Esto cubre tanto si está en un lote de "Rancho" como en otro de "Engorda".
-     */
+   
     availableBovines.value = allBovines.filter((b: any) => {
-      // Retorna true solo si no hay rastro de una asignación previa
-      return !b.idBatch && !b.batchId && !b.batch;
+      return Array.isArray(b.batches) && b.batches.length === 0;
     });
 
-    console.log(`Total: ${allBovines.length} | Disponibles: ${availableBovines.value.length}`);
+    console.log(`Total: ${allBovines.length} | Disponibles para asignar: ${availableBovines.value.length}`);
   } catch (error) {
-    showErrorAlert("Error al validar disponibilidad");
+    showErrorAlert("Error al cargar el inventario de animales");
   } finally {
     loading.value = false;
   }

@@ -113,6 +113,8 @@ const rules = {
         if (origin?.name.toUpperCase() === 'COMPRA') return !!v || "El valor de compra es obligatorio";
         return true;
     },
+    exact12: (v: any) => (v && v.length === 12) || "Debe tener exactamente 12 dígitos",
+    only12Digits: (v: any) => /^\d{12}$/.test(v) || "Deben ser exactamente 12 números",
     purposeRestriction: (v: any) => {
         if (!v || !form.value.sexId) return true;
         const selectedSex = lists.value.sex.find((s: any) => s.id === form.value.sexId)?.name.toUpperCase();
@@ -342,9 +344,9 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                 <v-form ref="formRef">
                     <v-row dense>
                         <v-col cols="12" md="4"><v-text-field label="Arete Siniiga *" v-model="form.siniigaEarTag"
-                                :rules="[rules.required]" variant="outlined" /></v-col>
+                                :rules="[rules.required, rules.exact12]" variant="outlined" /></v-col>
                         <v-col cols="12" md="4"><v-text-field label="Arete Interno *" v-model="form.internalEarTag"
-                                :rules="[rules.required]" variant="outlined" /></v-col>
+                                :rules="[rules.required, rules.exact12]" variant="outlined" /></v-col>
                         <v-col cols="12" md="4"><v-text-field label="Nombre / Apodo *" v-model="form.name"
                                 :rules="[rules.required]" variant="outlined" /></v-col>
 

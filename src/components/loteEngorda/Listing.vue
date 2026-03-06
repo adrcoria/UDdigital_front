@@ -50,7 +50,7 @@ const tableData = computed(() => {
   return batches.value.filter((item) => {
     return (
       item.name?.toLowerCase().includes(query) ||
-      item.bovines?.length.toString().includes(query)
+      item.bovineCount?.toString().includes(query)
     );
   });
 });
@@ -73,7 +73,6 @@ const getActionMenu = (item: any) => {
     { title: "Ver detalle lote", icon: "ph-eye", value: "view" }
   ];
 
-  // Solo Admin/Super pueden eliminar lotes
   if (canManageAll()) {
     menu.push({ title: "Eliminar lote", icon: "ph-trash", value: "delete" });
   }
@@ -86,7 +85,6 @@ const getBatches = async () => {
   try {
     loading.value = true;
     
-    // Contrato API: idBatchType según la colección
     const params = {
       batchTypeId: props.filters.batchTypeId,
       page: page.value,
@@ -94,13 +92,6 @@ const getBatches = async () => {
     };
 
     const res = await batchService.getBatches(params);
-    
-    /**
-     * ESTRUCTURA SEGÚN TU RESPONSE:
-     * res.data -> Axios
-     * .data -> Nest Wrapper
-     * .data -> Array de lotes
-     */
     const payload = res.data?.data;
     batches.value = payload?.data || [];
     
@@ -147,7 +138,6 @@ const confirmDelete = async () => {
   }
 };
 
-/* ------------------ Watchers ------------------ */
 onMounted(getBatches);
 
 watch(page, getBatches);
@@ -160,7 +150,6 @@ watch(() => props.filters, () => {
   getBatches();
 }, { deep: true });
 
-/* ------------------ Headers de Tabla ------------------ */
 const headers = [
   { title: "Nombre del Lote" },
   { title: "Animales Registrados", align: 'center' },
@@ -195,7 +184,7 @@ const headers = [
             
             <td class="text-center">
               <v-chip color="primary" variant="flat" size="small" class="font-weight-black">
-                {{ item.bovines?.length || 0 }} CABEZAS
+                {{ item.bovineCount || 0 }} CABEZAS
               </v-chip>
             </td>
 
@@ -203,13 +192,13 @@ const headers = [
             
             <td class="text-center">
                <v-chip 
-                :color="item.bovines?.length > 0 ? 'success' : 'blue-grey-lighten-4'" 
-                :variant="item.bovines?.length > 0 ? 'tonal' : 'flat'"
+                :color="item.bovineCount > 0 ? 'success' : 'blue-grey-lighten-4'" 
+                :variant="item.bovineCount > 0 ? 'tonal' : 'flat'"
                 size="x-small" 
                 label 
                 class="font-weight-bold"
                >
-                {{ item.bovines?.length > 0 ? 'CON GANADO' : 'SIN GANADO' }}
+                {{ item.bovineCount > 0 ? 'CON GANADO' : 'SIN GANADO' }}
                </v-chip>
             </td>
 
@@ -277,19 +266,3 @@ const headers = [
     @onConfirm="confirmDelete" 
   />
 </template>
-
-<style scoped>
-.batch-row:hover {
-  background-color: #f8fafc !important;
-  transition: background-color 0.2s ease;
-}
-
-th, td {
-  text-align: left !important;
-  vertical-align: middle;
-}
-
-.font-weight-black {
-  font-weight: 900 !important;
-}
-</style>

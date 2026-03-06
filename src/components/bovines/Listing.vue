@@ -6,6 +6,7 @@ import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConf
 import BovineDetailsDialog from "./Dialogs/BovineDetailsDialog.vue";
 import BovinePhotosDialog from "./Dialogs/BovinePhotosDialog.vue"; // Nuevo Componente
 import CreateEditBovineDialog from "./Dialogs/CreateEditBovineDialog.vue";
+import PregnancyManagementDialog from "./Dialogs/PregnancyManagementDialog.vue"
 import { bovineService } from "@/app/http/httpServiceProvider";
 import { showErrorAlert, showSuccessAlert } from "@/app/services/alertService";
 
@@ -33,6 +34,8 @@ const bovinePhotosDialog = ref(false); // Estado para el modal de fotos
 const selectedItem = ref<any | null>(null);
 const confirmationDialog = ref(false);
 const itemToDelete = ref<any | null>(null);
+const pregnancyDialog = ref(false);
+const heatDialog = ref(false);
 const deleting = ref(false);
 
 const headers = [
@@ -45,12 +48,7 @@ const headers = [
   { title: "Acciones", align: "center" },
 ];
 
-const actionMenu = [
-  { title: "Ficha de vida", icon: "ph-file-text", value: "view" },
-  { title: "Gestionar Fotos", icon: "ph-camera", value: "photos" }, // Nueva Acción
-  { title: "Editar", icon: "ph-pencil", value: "edit" },
-  { title: "Eliminar", icon: "ph-trash", value: "delete" },
-];
+
 
 /* ------------------ Logic ------------------ */
 
@@ -59,6 +57,27 @@ const formatRaces = (raceAssignments: any[]) => {
   return raceAssignments
     .map(ra => ra.bovineRace?.name || 'S/R')
     .join(', ');
+};
+const getActionMenu = (item: any) => {
+  const menu = [
+    { title: "Ficha de vida", icon: "ph-file-text", value: "view" },
+    { title: "Gestionar Fotos", icon: "ph-camera", value: "photos" },
+  ];
+
+  // Restricción: Solo hembras ven opciones reproductivas
+  if (item.sex?.name === 'HEMBRA') {
+    menu.push(
+      { title: "Registrar Celo", icon: "ph-thermometer-hot", value: "heat" },
+      { title: "Registrar Preñez", icon: "ph-baby", value: "pregnancy" }
+    );
+  }
+
+  menu.push(
+    { title: "Editar", icon: "ph-pencil", value: "edit" },
+    { title: "Eliminar", icon: "ph-trash", value: "delete" }
+  );
+
+  return menu;
 };
 
 const getItems = async () => {
@@ -94,12 +113,16 @@ const onSelectAction = (option: string, item: any) => {
   if (option === "view") {
     bovineDetailsDialog.value = true;
   } else if (option === "photos") {
-    bovinePhotosDialog.value = true; // Abrir modal de fotos
+    bovinePhotosDialog.value = true;
   } else if (option === "edit") {
     createEditDialog.value = true;
   } else if (option === "delete") {
     itemToDelete.value = item;
     confirmationDialog.value = true;
+  } else if (option === "pregnancy") {
+    pregnancyDialog.value = true; // <--- HABILITAR APERTURA
+  } else if (option === "heat") {
+    showSuccessAlert("Módulo de Celo próximamente");
   }
 };
 
@@ -141,12 +164,8 @@ onMounted(getItems);
           <template v-for="item in tableData" :key="item.id">
             <tr :class="{ 'bg-blue-grey-lighten-5': expandedRows.includes(item.id) }">
               <td>
-                <v-btn
-                  variant="text"
-                  :icon="expandedRows.includes(item.id) ? 'ph-caret-up' : 'ph-caret-down'"
-                  size="small"
-                  @click="toggleExpand(item.id)"
-                />
+                <v-btn variant="text" :icon="expandedRows.includes(item.id) ? 'ph-caret-up' : 'ph-caret-down'"
+                  size="small" @click="toggleExpand(item.id)" />
               </td>
               <td>
                 <div class="font-weight-bold">{{ item.siniigaEarTag || 'SIN ARETE' }}</div>
@@ -158,7 +177,7 @@ onMounted(getItems);
                   {{ item.sex?.name || 'N/A' }}
                 </v-chip>
               </td>
-              
+
               <td class="text-caption">
                 {{ formatRaces(item.raceAssignments) }}
               </td>
@@ -169,7 +188,7 @@ onMounted(getItems);
                 </v-chip>
               </td>
               <td class="text-center">
-                <ListMenuWithIcon :menuItems="actionMenu" @onSelect="onSelectAction($event, item)" />
+                <ListMenuWithIcon :menuItems="getActionMenu(item)" @onSelect="onSelectAction($event, item)" />
               </td>
             </tr>
 
@@ -199,7 +218,8 @@ onMounted(getItems);
                           <div class="text-caption text-grey">Nacimiento / Ingreso</div>
                           <div class="text-body-2 mb-1">{{ item.birthDate }} / {{ item.dateAddedToHerd }}</div>
                           <div class="text-caption text-grey">Tipo y Propósito</div>
-                          <div class="text-body-2">{{ item.bovineType?.name || 'S/T' }} - {{ item.bovinePurpose?.name || 'S/P' }}</div>
+                          <div class="text-body-2">{{ item.bovineType?.name || 'S/T' }} - {{ item.bovinePurpose?.name ||
+                            'S/P' }}</div>
                           <div class="text-caption text-grey">Origen</div>
                           <div class="text-body-2">{{ item.bovineOrigin?.name || 'N/A' }}</div>
                         </div>
@@ -239,10 +259,12 @@ onMounted(getItems);
                         <div class="text-caption font-weight-bold text-grey mb-1">Responsable / Dueño</div>
                         <div class="d-flex align-center">
                           <v-avatar size="36" color="primary" variant="tonal" class="mr-3">
-                            <span class="text-caption font-weight-bold">{{ item.livestockOwner?.firstName?.charAt(0) }}{{ item.livestockOwner?.lastName?.charAt(0) }}</span>
+                            <span class="text-caption font-weight-bold">{{ item.livestockOwner?.firstName?.charAt(0)
+                            }}{{ item.livestockOwner?.lastName?.charAt(0) }}</span>
                           </v-avatar>
                           <div>
-                            <div class="text-body-2 font-weight-bold">{{ item.livestockOwner?.firstName }} {{ item.livestockOwner?.lastName }}</div>
+                            <div class="text-body-2 font-weight-bold">{{ item.livestockOwner?.firstName }} {{
+                              item.livestockOwner?.lastName }}</div>
                             <div class="text-caption text-primary">{{ item.company?.name }}</div>
                           </div>
                         </div>
@@ -281,7 +303,8 @@ onMounted(getItems);
           <v-col cols="auto">
             <div class="d-flex align-center">
               <span class="text-caption mr-3">Registros por página:</span>
-              <v-select v-model="config.itemsPerPage" :items="[10, 25, 50]" variant="outlined" density="compact" hide-details style="width: 80px" />
+              <v-select v-model="config.itemsPerPage" :items="[10, 25, 50]" variant="outlined" density="compact"
+                hide-details style="width: 80px" />
             </div>
           </v-col>
           <v-spacer />
@@ -293,31 +316,16 @@ onMounted(getItems);
     </v-card-text>
   </v-card>
 
-  <BovineDetailsDialog
-    v-if="bovineDetailsDialog"
-    v-model="bovineDetailsDialog"
-    :item="selectedItem"
-  />
+  <BovineDetailsDialog v-if="bovineDetailsDialog" v-model="bovineDetailsDialog" :item="selectedItem" />
 
-  <BovinePhotosDialog
-    v-if="bovinePhotosDialog"
-    v-model="bovinePhotosDialog"
-    :item="selectedItem"
-    @refresh="getItems"
-  />
+  <BovinePhotosDialog v-if="bovinePhotosDialog" v-model="bovinePhotosDialog" :item="selectedItem" @refresh="getItems" />
 
-  <CreateEditBovineDialog
-    v-if="createEditDialog"
-    v-model="createEditDialog"
-    :item="selectedItem"
-    @refresh="getItems"
-  />
+  <CreateEditBovineDialog v-if="createEditDialog" v-model="createEditDialog" :item="selectedItem" @refresh="getItems" />
 
-  <RemoveItemConfirmationDialog
-    v-model="confirmationDialog"
-    :loading="deleting"
-    @onConfirm="confirmDelete"
-  />
+  <PregnancyManagementDialog v-if="pregnancyDialog" v-model="pregnancyDialog" :bovine="selectedItem"
+    @refresh="getItems" />
+
+  <RemoveItemConfirmationDialog v-model="confirmationDialog" :loading="deleting" @onConfirm="confirmDelete" />
 </template>
 
 <style scoped>

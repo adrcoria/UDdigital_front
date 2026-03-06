@@ -10,12 +10,14 @@ export default class BatchBovineService {
   }
 
   async updateBovinestoBatch(idBatch: string, payload: { idBovines: string[] }) {
-    return http.patch(`/batch/${idBatch}`, payload);
+    return http.post(`/batch/${idBatch}/bovines`, payload);
   }
 
-  // Quitar animal del lote (PATCH)
-  async removeBovineFromBatch(idBovine: string) {
-    return http.delete(`/bovine/${idBovine}/remove-batch`);
+
+
+  async removeBovineFromBatch(idBatch: string, payload: { idBovines: string[] }) {
+   
+    return http.delete(`/batch/${idBatch}/bovines`, { data: payload });
   }
 
   // Registro de Peso (POST)

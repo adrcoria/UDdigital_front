@@ -18,4 +18,8 @@ export default class BatchService {
   async deleteBatch(id: string) {
     return http.delete(`${this.basePath}/${id}`);
   }
+
+  async getBatchById(id: string) {
+  return http.get(`${this.basePath}/${id}`);
+}
 }

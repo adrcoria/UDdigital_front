@@ -1,252 +1,294 @@
 <script lang="ts" setup>
-import { ref, watch, computed } from "vue";
-import { batchService, batchBovineService } from "@/app/http/httpServiceProvider";
+import { ref, onMounted, computed, watch } from "vue";
+import { batchService, batchBovineService, weightService } from "@/app/http/httpServiceProvider";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 import Table from "@/app/common/components/Table.vue";
+import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
 
-const props = defineProps<{ 
-  modelValue: boolean; 
-  batch: any | null 
+const props = defineProps<{
+  modelValue: boolean;
+  batch: any | null;
 }>();
 
 const emit = defineEmits(["update:modelValue", "refresh"]);
 
 /* ------------------ Estado ------------------ */
 const loading = ref(false);
-const bovines = ref<any[]>([]);
+const localBatch = ref<any>(null);
 const search = ref("");
+const removing = ref(false);
+const confirmDeleteDialog = ref(false);
 
-// Estado para el registro de peso (Weight Log)
-const showWeightDialog = ref(false);
-const savingWeight = ref(false);
-const selectedBovine = ref<any | null>(null);
-const weightForm = ref({
-  weight: 0,
-  date: new Date().toISOString().split('T')[0]
-});
+// Paginación Tabla Principal (Animales)
+const page = ref(1);
+const config = ref({ page: 1, noOfItems: 0, itemsPerPage: 10 });
+
+// Selección Múltiple
+const selectedIds = ref<string[]>([]);
+
+// Estado Ganancia de Peso (Historial Paginado)
+const expandedRows = ref<string[]>([]);
+const weightHistory = ref<Record<string, any[]>>({});
+const loadingHistory = ref<Record<string, boolean>>({});
+const historyPages = ref<Record<string, number>>({}); // Controla la página de historial por animal
+const newWeights = ref<Record<string, number | null>>({});
+const weightDates = ref<Record<string, string>>({});
+const savingWeight = ref<Record<string, boolean>>({});
 
 /* ------------------ Carga de Datos ------------------ */
-const loadBatchDetails = async () => {
+const loadBatchDetail = async () => {
   if (!props.batch?.id) return;
-  
   try {
     loading.value = true;
-    // Usamos el endpoint de detalle de lote para obtener sus animales
-    const res = await batchService.getBatches({ id: props.batch.id });
-    // Según la estructura de la API, el detalle suele venir en el primer elemento
-    bovines.value = res.data.data.data[0]?.bovines || [];
+    const params = { page: page.value, limit: config.value.itemsPerPage };
+    const res = await batchService.getBatchById(props.batch.id, params);
+    localBatch.value = res.data.data;
+    config.value.noOfItems = localBatch.value.bovineCount || 0;
+    selectedIds.value = [];
   } catch (error) {
-    showErrorAlert("No se pudo cargar el detalle de los animales");
+    showErrorAlert("No se pudo obtener el detalle");
   } finally {
     loading.value = false;
   }
 };
 
-/* ------------------ Acciones por Animal ------------------ */
-const handleRemoveFromBatch = async (bovine: any) => {
+/* ------------------ Lógica de Peso ------------------ */
+const toggleWeightHistory = async (bovineId: string) => {
+  if (expandedRows.value.includes(bovineId)) {
+    expandedRows.value = expandedRows.value.filter(id => id !== bovineId);
+  } else {
+    expandedRows.value.push(bovineId);
+    historyPages.value[bovineId] = 1; // Reset a página 1 al abrir
+    if (!weightDates.value[bovineId]) {
+      weightDates.value[bovineId] = new Date().toISOString().substr(0, 10);
+    }
+    await loadWeightHistory(bovineId);
+  }
+};
+
+const loadWeightHistory = async (bovineId: string) => {
   try {
-    loading.value = true;
-    await batchBovineService.removeBovineFromBatch(bovine.id);
-    showSuccessAlert(`${bovine.siniigaEarTag} ha sido removido del lote`);
-    await loadBatchDetails();
-    emit("refresh"); // Notificar al listing que la cuenta de animales cambió
+    loadingHistory.value[bovineId] = true;
+    const currentPage = historyPages.value[bovineId] || 1;
+
+    // Llamada al servicio con paginación explícita
+    const res = await weightService.getHistoryByBovine(bovineId, currentPage, 5);
+
+    // Si la respuesta es res.data.data (array), lo asignamos
+    weightHistory.value[bovineId] = res.data?.data || [];
   } catch (error) {
-    showErrorAlert("No se pudo remover al animal del lote");
+    console.error("Error historial:", error);
   } finally {
-    loading.value = false;
+    loadingHistory.value[bovineId] = false;
   }
 };
 
-const openWeightLog = (bovine: any) => {
-  selectedBovine.value = bovine;
-  weightForm.value = {
-    weight: 0,
-    date: new Date().toISOString().split('T')[0]
-  };
-  showWeightDialog.value = true;
-};
-
-const saveWeightLog = async () => {
-  if (!selectedBovine.value || weightForm.value.weight <= 0) return;
+const saveWeight = async (bovineId: string) => {
+  const weight = newWeights.value[bovineId];
+  const date = weightDates.value[bovineId];
+  if (!weight || weight <= 0) return;
 
   try {
-    savingWeight.value = true;
-    await batchBovineService.addWeightLog(selectedBovine.value.id, {
-      weight: Number(weightForm.value.weight),
-      date: weightForm.value.date
-    });
-    
-    showSuccessAlert("Registro de peso guardado correctamente");
-    showWeightDialog.value = false;
-    await loadBatchDetails(); // Refrescar para ver el último peso
-  } catch (error: any) {
-    showErrorAlert("Error al registrar el peso");
+    savingWeight.value[bovineId] = true;
+    const payload = {
+      weight,
+      bovineId: bovineId,
+      registerDate: date ? new Date(date).toISOString() : new Date().toISOString()
+    };
+    await weightService.createWeightLog(payload);
+    showSuccessAlert("Peso registrado");
+    newWeights.value[bovineId] = null;
+    historyPages.value[bovineId] = 1; // Volver a p1 para ver el nuevo
+    await loadWeightHistory(bovineId);
+  } catch (error) {
+    showErrorAlert("No se pudo registrar");
   } finally {
-    savingWeight.value = false;
+    savingWeight.value[bovineId] = false;
   }
 };
 
-/* ------------------ Filtro ------------------ */
-const filteredBovines = computed(() => {
-  const q = search.value.toLowerCase().trim();
-  return bovines.value.filter(b => 
-    b.siniigaEarTag?.toLowerCase().includes(q) || 
-    b.name?.toLowerCase().includes(q)
-  );
-});
+const deleteLog = async (logId: string, bovineId: string) => {
+  try {
+    await weightService.deleteWeightLog(logId);
+    showSuccessAlert("Eliminado");
+    await loadWeightHistory(bovineId);
+  } catch (error) {
+    showErrorAlert("No se pudo eliminar");
+  }
+};
 
-watch(() => props.modelValue, (val) => {
-  if (val) loadBatchDetails();
-});
+/* ------------------ Acciones de Lote ------------------ */
+const confirmRemoveBovines = async () => {
+  try {
+    removing.value = true;
+    await batchBovineService.removeBovineFromBatch(localBatch.value.id, { idBovines: selectedIds.value });
+    showSuccessAlert("Removidos con éxito");
+    confirmDeleteDialog.value = false;
+    selectedIds.value = [];
+    await loadBatchDetail();
+    emit("refresh");
+  } catch (error) {
+    showErrorAlert("Error al remover");
+  } finally {
+    removing.value = false;
+  }
+};
+
+const toggleSelectAll = () => {
+  // Comparamos contra filteredBovines que son los que están visibles en la tabla
+  if (selectedIds.value.length === filteredBovines.value.length) {
+    selectedIds.value = [];
+  } else {
+    selectedIds.value = filteredBovines.value.map(b => b.id);
+  }
+};
+
+watch(page, loadBatchDetail);
+onMounted(() => { if (props.modelValue) loadBatchDetail(); });
 
 const headers = [
-  { title: "Arete Siniiga" },
-  { title: "Nombre / Apodo" },
-  { title: "Tipo" },
-  { title: "Peso Actual (Kg)" },
-  { title: "Último Pesaje" },
-  { title: "Acciones", align: 'center' }
+  { title: "Selección", width: "50px", align: "center" },
+  { title: "Historial", width: "50px", align: "center" },
+  { title: "Arete Interno" },
+  { title: "Nombre" },
+  { title: "Siniiga" },
+  { title: "Estatus" },
+  { title: "Acciones", align: "center" }
 ];
+
+const filteredBovines = computed(() => {
+  const q = search.value.toLowerCase().trim();
+  const list = localBatch.value?.bovines || [];
+  return q ? list.filter((b: any) => b.internalEarTag?.toLowerCase().includes(q) || b.name?.toLowerCase().includes(q)) : list;
+});
 </script>
 
 <template>
-  <v-dialog 
-    :model-value="modelValue" 
-    fullscreen 
-    persistent 
-    transition="dialog-bottom-transition"
-  >
+  <v-dialog :model-value="modelValue" fullscreen persistent transition="dialog-bottom-transition">
     <v-card class="bg-grey-lighten-4">
-      <v-toolbar color="primary" dark>
-        <v-btn icon="ph-arrow-left" @click="emit('update:modelValue', false)" />
-        <v-toolbar-title class="font-weight-black">
-          DETALLE DEL LOTE: {{ batch?.name }}
-        </v-toolbar-title>
+      <v-toolbar color="primary" flat class="px-2">
+        <v-btn icon="ph-x" @click="emit('update:modelValue', false)" />
+        <v-toolbar-title class="font-weight-bold">Lote: {{ localBatch?.name }}</v-toolbar-title>
         <v-spacer />
-        <v-chip color="white" label class="mr-4 font-weight-bold">
-          {{ bovines.length }} CABEZAS EN ENGORDA
-        </v-chip>
+        <v-btn v-if="selectedIds.length > 0" color="error" variant="flat" prepend-icon="ph-trash" class="mr-4 px-6"
+          @click="confirmDeleteDialog = true">
+          Remover ({{ selectedIds.length }})
+        </v-btn>
+
       </v-toolbar>
 
       <v-container fluid class="pa-6">
-        <v-card border elevation="0" class="rounded-lg">
-          <v-card-title class="pa-4 d-flex align-center">
-            <v-text-field
-              v-model="search"
-              prepend-inner-icon="ph-magnifying-glass"
-              label="Filtrar animales en este lote..."
-              variant="outlined"
-              density="comfortable"
-              hide-details
-              class="max-width-400"
-              clearable
-            />
-          </v-card-title>
+        <v-row>
+          <v-col cols="12" md="3">
+            <v-card border flat class="rounded-lg pa-4">
+              <div class="text-overline mb-2 text-primary">Resumen del Lote</div>
+              <div class="text-h6 font-weight-bold text-uppercase">{{ localBatch?.name }}</div>
+              <v-divider class="my-3" />
+              <div class="text-caption text-grey">Compañía</div>
+              <div class="font-weight-bold">{{ localBatch?.company?.name }}</div>
+            </v-card>
+          </v-col>
 
-          <Table :headerItems="headers" :loading="loading">
-            <template #body>
-              <tr v-for="bov in filteredBovines" :key="bov.id">
-                <td class="font-weight-bold">{{ bov.siniigaEarTag }}</td>
-                <td>{{ bov.name }}</td>
-                <td>
-                  <v-chip size="x-small" variant="flat" color="blue-grey-lighten-4">
-                    {{ bov.bovineType?.name }}
-                  </v-chip>
-                </td>
-                <td class="text-right font-weight-black text-primary">
-                  {{ bov.currentWeight || '0' }} kg
-                </td>
-                <td>{{ bov.lastWeightDate ? new Date(bov.lastWeightDate).toLocaleDateString() : 'Sin registro' }}</td>
-                <td class="text-center">
-                  <div class="d-flex justify-center ga-2">
-                    <v-btn 
-                      icon="ph-scales" 
-                      variant="tonal" 
-                      color="success" 
-                      size="small" 
-                      title="Registrar Peso"
-                      @click="openWeightLog(bov)"
-                    />
-                    <v-btn 
-                      icon="ph-user-minus" 
-                      variant="tonal" 
-                      color="error" 
-                      size="small" 
-                      title="Quitar del lote"
-                      @click="handleRemoveFromBatch(bov)"
-                    />
-                  </div>
-                </td>
-              </tr>
-              
-              <tr v-if="filteredBovines.length === 0 && !loading">
-                <td colspan="6" class="text-center py-10 text-grey">
-                  No se encontraron animales en este lote.
-                </td>
-              </tr>
-            </template>
-          </Table>
-        </v-card>
+          <v-col cols="12" md="9">
+            <v-card border flat class="rounded-lg">
+              <v-card-title class="pa-4 bg-white d-flex align-center">
+                <v-text-field v-model="search" label="Buscar por nombre o arete interno..." variant="outlined"
+                  density="compact" hide-details prepend-inner-icon="ph-magnifying-glass" class="flex-grow-1" />
+
+                <v-btn variant="text" size="small" class="ml-4 font-weight-bold" color="primary"
+                  prepend-icon="ph-check-square" @click="toggleSelectAll">
+                  {{ selectedIds.length === filteredBovines.length ? 'Desmarcar página' : 'Seleccionar todos' }}
+                </v-btn>
+              </v-card-title>
+              <Table v-model="page" :config="config" :headerItems="headers" :loading="loading" is-pagination>
+                <template #body>
+                  <template v-for="bov in filteredBovines" :key="bov.id">
+                    <tr
+                      :class="selectedIds.includes(bov.id) ? 'bg-red-lighten-5' : (expandedRows.includes(bov.id) ? 'bg-blue-lighten-5' : '')">
+                      <td class="text-center"><v-checkbox-btn v-model="selectedIds" :value="bov.id" color="error" />
+                      </td>
+                      <td class="text-center">
+                        <v-btn icon variant="text" size="small" @click="toggleWeightHistory(bov.id)">
+                          <v-icon :color="expandedRows.includes(bov.id) ? 'primary' : ''">{{
+                            expandedRows.includes(bov.id) ? 'ph-caret-up-bold' : 'ph-caret-down-bold' }}</v-icon>
+                        </v-btn>
+                      </td>
+                      <td><span class="text-h6 font-weight-black text-primary">{{ bov.internalEarTag }}</span></td>
+                      <td class="text-uppercase font-weight-medium">{{ bov.name }}</td>
+                      <td>{{ bov.siniigaEarTag }}</td>
+                      <td><v-chip size="x-small" color="success" label>{{ bov.bovineStatus }}</v-chip></td>
+                      <td class="text-center">
+                        <v-btn icon="ph-trash" size="small" variant="text" color="error"
+                          @click="selectedIds = [bov.id]; confirmDeleteDialog = true" />
+                      </td>
+                    </tr>
+
+                    <tr v-if="expandedRows.includes(bov.id)" class="bg-grey-lighten-5">
+                      <td colspan="7" class="pa-4 border-b">
+                        <v-row>
+                          <v-col cols="12" md="5" class="border-e pr-6">
+                            <div class="text-subtitle-2 font-weight-bold mb-3 d-flex align-center text-primary"><v-icon
+                                class="mr-2">ph-scales</v-icon> Capturar Peso</div>
+                            <v-text-field v-model="weightDates[bov.id]" type="date" variant="outlined"
+                              density="comfortable" class="mb-2" />
+                            <v-text-field v-model.number="newWeights[bov.id]" label="kg" type="number"
+                              variant="outlined" density="comfortable" hide-details>
+                              <template #append><v-btn color="primary" icon="ph-floppy-disk" variant="flat"
+                                  :loading="savingWeight[bov.id]" @click="saveWeight(bov.id)" /></template>
+                            </v-text-field>
+                          </v-col>
+                          <v-col cols="12" md="7" class="pl-6">
+                            <div class="d-flex justify-space-between align-center mb-2">
+                              <span class="text-subtitle-2 font-weight-bold">Historial (Página {{ historyPages[bov.id]
+                                }})</span>
+                              <div>
+                                <v-btn icon="ph-arrow-left" size="x-small" variant="text"
+                                  :disabled="historyPages[bov.id] <= 1"
+                                  @click="historyPages[bov.id]--; loadWeightHistory(bov.id)" />
+                                <v-btn icon="ph-arrow-right" size="x-small" variant="text"
+                                  @click="historyPages[bov.id]++; loadWeightHistory(bov.id)" />
+                              </div>
+                            </div>
+                            <v-table density="compact" class="bg-transparent">
+                              <thead>
+                                <tr>
+                                  <th>FECHA</th>
+                                  <th class="text-center">Ultimo peso registrado</th>
+                                  <th class="text-center">GANANCIA</th>
+                                  <th></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr v-for="(log, i) in weightHistory[bov.id]" :key="log.id">
+                                  <td class="text-caption">{{ log.registerDate ? new
+                                    Date(log.registerDate).toLocaleDateString() : new
+                                    Date(log.createdAt).toLocaleDateString() }}</td>
+                                  <td class="font-weight-bold text-center">{{ log.weight }} KG</td>
+                                  <td class="text-center">
+                                    <v-chip v-if="i < weightHistory[bov.id].length - 1" color="success" size="x-small"
+                                      variant="tonal" class="font-weight-black">
+                                      +{{ (parseFloat(log.weight) -
+                                        parseFloat(weightHistory[bov.id][i+1].weight)).toFixed(2) }}
+                                    </v-chip>
+                                  </td>
+                                  <td class="text-right"><v-btn icon="ph-trash" size="x-small" variant="text"
+                                      color="error" @click="deleteLog(log.id, bov.id)" /></td>
+                                </tr>
+                              </tbody>
+                            </v-table>
+                          </v-col>
+                        </v-row>
+                      </td>
+                    </tr>
+                  </template>
+                </template>
+              </Table>
+            </v-card>
+          </v-col>
+        </v-row>
       </v-container>
     </v-card>
-
-    <v-dialog v-model="showWeightDialog" max-width="450px">
-      <v-card class="rounded-xl">
-        <v-card-title class="pa-6 bg-success text-white">
-          <div class="d-flex align-center">
-            <v-icon icon="ph-scales" class="mr-3" />
-            <div>
-              <div class="text-h6 font-weight-bold">Registro de Pesaje</div>
-              <div class="text-caption">{{ selectedBovine?.siniigaEarTag }} - {{ selectedBovine?.name }}</div>
-            </div>
-          </div>
-        </v-card-title>
-
-        <v-card-text class="pa-6">
-          <v-row dense>
-            <v-col cols="12">
-              <v-text-field
-                label="Nuevo Peso Registrado (Kg) *"
-                v-model.number="weightForm.weight"
-                type="number"
-                variant="outlined"
-                prepend-inner-icon="ph-monitor-weight"
-                suffix="kg"
-                autofocus
-              />
-            </v-col>
-            <v-col cols="12">
-              <v-text-field
-                label="Fecha de Pesaje *"
-                v-model="weightForm.date"
-                type="date"
-                variant="outlined"
-                prepend-inner-icon="ph-calendar"
-              />
-            </v-col>
-          </v-row>
-        </v-card-text>
-
-        <v-card-actions class="pa-6 pt-0">
-          <v-spacer />
-          <v-btn variant="text" color="grey" @click="showWeightDialog = false">Cancelar</v-btn>
-          <v-btn 
-            color="success" 
-            variant="flat" 
-            class="px-8 rounded-lg" 
-            @click="saveWeightLog"
-            :loading="savingWeight"
-          >
-            Guardar Pesaje
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <RemoveItemConfirmationDialog v-model="confirmDeleteDialog" :loading="removing" title="Remover"
+      :message="`¿Quitar seleccionados?`" @onConfirm="confirmRemoveBovines" />
   </v-dialog>
 </template>
-
-<style scoped>
-.max-width-400 {
-  max-width: 400px;
-}
-</style>

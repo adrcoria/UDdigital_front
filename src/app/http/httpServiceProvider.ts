@@ -19,6 +19,8 @@ import ParameterService from "./services/parameterService";
 import BovinePhotoService from "./services/bovinePhotoService";
 import BatchService from "./services/BatchService";
 import BatchBovineService from "./services/BatchBovineService"; 
+import WeightService from "./services/WeightService";
+import PregnancyService from "./services/PregnancyService";
 const roleService = new RoleService();
 const ledgerAccountService = new LedgerAccountService();
 const userService = new UserService();
@@ -26,6 +28,7 @@ const suscriptionService = new SuscriptionService();
 const operationsService = new OperationsService();
 const reportService = new ReportService();
 const usuariosService = new UsuariosService();
+const pregnancyService = new PregnancyService();
 
 const conceptService = new ConceptService();
 const conceptCategoryService = new ConceptCategoryService();
@@ -41,8 +44,11 @@ const parameterService= new ParameterService();
 const bovinePhotoService = new BovinePhotoService();
 const batchService = new BatchService();
 const batchBovineService = new BatchBovineService();
+const weightService = new WeightService();
 
 export {
+  weightService,
+  pregnancyService,
   batchService,
   batchBovineService,
   ledgerAccountService,
