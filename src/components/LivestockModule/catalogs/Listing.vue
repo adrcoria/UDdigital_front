@@ -32,13 +32,17 @@ const confirmationDialog = ref(false);
 const itemToDelete = ref<any | null>(null);
 const deleting = ref(false);
 
+/* ------------------ Catálogos de solo lectura ------------------ */
+const readOnlyCatalogs = ["bovine-purpose", "sex", "bovine-origin", "pregnancy-type"];
+const isReadOnly = computed(() => readOnlyCatalogs.includes(props.catalog));
+
 /* ------------------ Headers Dinámicos ------------------ */
 const headers = computed(() => {
   if (props.catalog === "livestock-owner") {
     return [
       { title: "Propietario" },
       { title: "Empresa" },
-      { title: "Acciones", align: "center" },
+      ...(isReadOnly.value ? [] : [{ title: "Acciones", align: "center" }]),
     ];
   }
 
@@ -47,13 +51,13 @@ const headers = computed(() => {
       { title: "Nombre" },
       { title: "Sexo" },
       { title: "Meses" },
-      { title: "Acciones", align: "center" },
+      ...(isReadOnly.value ? [] : [{ title: "Acciones", align: "center" }]),
     ];
   }
 
   return [
     { title: "Nombre" },
-    { title: "Acciones", align: "center" },
+    ...(isReadOnly.value ? [] : [{ title: "Acciones", align: "center" }]),
   ];
 });
 
@@ -153,7 +157,7 @@ onMounted(getItems);
           <div class="text-h6">Registros del catálogo</div>
         </v-col>
         <v-spacer />
-        <v-col cols="auto">
+        <v-col v-if="!isReadOnly" cols="auto">
           <v-btn color="primary" prepend-icon="ph-plus" @click="selectedItem = null; createDialog = true">
             Registrar Nuevo
           </v-btn>
@@ -185,7 +189,7 @@ onMounted(getItems);
               <td>{{ item.name }}</td>
             </template>
 
-            <td class="text-center">
+            <td v-if="!isReadOnly" class="text-center">
               <ListMenuWithIcon :menuItems="actionMenu" @onSelect="onSelectAction($event, item)" />
             </td>
           </tr>

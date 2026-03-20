@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch, onMounted, computed } from "vue";
+import { ref, watch, onMounted, computed, nextTick } from "vue";
 import Table from "@/app/common/components/Table.vue";
 import ListMenuWithIcon from "@/app/common/components/ListMenuWithIcon.vue";
 import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
@@ -7,6 +7,7 @@ import BovineDetailsDialog from "./Dialogs/BovineDetailsDialog.vue";
 import BovinePhotosDialog from "./Dialogs/BovinePhotosDialog.vue"; // Nuevo Componente
 import CreateEditBovineDialog from "./Dialogs/CreateEditBovineDialog.vue";
 import PregnancyManagementDialog from "./Dialogs/PregnancyManagementDialog.vue"
+import HeatManagementDialog from "./Dialogs/HeatManagementDialog.vue"
 import { bovineService } from "@/app/http/httpServiceProvider";
 import { showErrorAlert, showSuccessAlert } from "@/app/services/alertService";
 
@@ -36,6 +37,7 @@ const confirmationDialog = ref(false);
 const itemToDelete = ref<any | null>(null);
 const pregnancyDialog = ref(false);
 const heatDialog = ref(false);
+
 const deleting = ref(false);
 
 const headers = [
@@ -59,23 +61,22 @@ const formatRaces = (raceAssignments: any[]) => {
     .join(', ');
 };
 const getActionMenu = (item: any) => {
-  const menu = [
+  const menu: any[] = [
     { title: "Ficha de vida", icon: "ph-file-text", value: "view" },
     { title: "Gestionar Fotos", icon: "ph-camera", value: "photos" },
+    { title: "Editar datos", icon: "ph-pencil", value: "edit" },
   ];
 
   // Restricción: Solo hembras ven opciones reproductivas
   if (item.sex?.name === 'HEMBRA') {
     menu.push(
       { title: "Registrar Celo", icon: "ph-thermometer-hot", value: "heat" },
-      { title: "Registrar Preñez", icon: "ph-baby", value: "pregnancy" }
+      { title: "Registrar Preñez", icon: "ph-baby", value: "pregnancy" },
+      { title: "Registrar Parto", icon: "ph-baby-carriage", value: "birth" }
     );
   }
 
-  menu.push(
-    { title: "Editar", icon: "ph-pencil", value: "edit" },
-    { title: "Eliminar", icon: "ph-trash", value: "delete" }
-  );
+  menu.push({ title: "Eliminar", icon: "ph-trash", value: "delete" });
 
   return menu;
 };
@@ -108,7 +109,7 @@ const toggleExpand = (id: string) => {
   else expandedRows.value.push(id);
 };
 
-const onSelectAction = (option: string, item: any) => {
+const onSelectAction = async (option: string, item: any) => {
   selectedItem.value = item;
   if (option === "view") {
     bovineDetailsDialog.value = true;
@@ -120,9 +121,13 @@ const onSelectAction = (option: string, item: any) => {
     itemToDelete.value = item;
     confirmationDialog.value = true;
   } else if (option === "pregnancy") {
-    pregnancyDialog.value = true; // <--- HABILITAR APERTURA
+    pregnancyDialog.value = false;
+    await nextTick();
+    pregnancyDialog.value = true;
   } else if (option === "heat") {
-    showSuccessAlert("Módulo de Celo próximamente");
+    heatDialog.value = false;
+    await nextTick();
+    heatDialog.value = true;
   }
 };
 
@@ -188,7 +193,7 @@ onMounted(getItems);
                 </v-chip>
               </td>
               <td class="text-center">
-                <ListMenuWithIcon :menuItems="getActionMenu(item)" @onSelect="onSelectAction($event, item)" />
+                <ListMenuWithIcon icon="ph-dots-three-vertical ph-lg" variant="text" :color="undefined" :menuItems="getActionMenu(item)" @onSelect="onSelectAction($event, item)" />
               </td>
             </tr>
 
@@ -323,6 +328,9 @@ onMounted(getItems);
   <CreateEditBovineDialog v-if="createEditDialog" v-model="createEditDialog" :item="selectedItem" @refresh="getItems" />
 
   <PregnancyManagementDialog v-if="pregnancyDialog" v-model="pregnancyDialog" :bovine="selectedItem"
+    @refresh="getItems" />
+
+  <HeatManagementDialog v-if="heatDialog" v-model="heatDialog" :bovine="selectedItem"
     @refresh="getItems" />
 
   <RemoveItemConfirmationDialog v-model="confirmationDialog" :loading="deleting" @onConfirm="confirmDelete" />

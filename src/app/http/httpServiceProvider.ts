@@ -21,6 +21,8 @@ import BatchService from "./services/BatchService";
 import BatchBovineService from "./services/BatchBovineService"; 
 import WeightService from "./services/WeightService";
 import PregnancyService from "./services/PregnancyService";
+import HeatService from "./services/HeatService";
+const heatService = new HeatService();
 const roleService = new RoleService();
 const ledgerAccountService = new LedgerAccountService();
 const userService = new UserService();
@@ -49,6 +51,7 @@ const weightService = new WeightService();
 export {
   weightService,
   pregnancyService,
+  heatService,
   batchService,
   batchBovineService,
   ledgerAccountService,

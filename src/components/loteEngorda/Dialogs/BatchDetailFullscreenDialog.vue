@@ -34,6 +34,7 @@ const historyPages = ref<Record<string, number>>({}); // Controla la página de 
 const newWeights = ref<Record<string, number | null>>({});
 const weightDates = ref<Record<string, string>>({});
 const savingWeight = ref<Record<string, boolean>>({});
+const weightErrors = ref<Record<string, string>>({});
 
 /* ------------------ Carga de Datos ------------------ */
 const loadBatchDetail = async () => {
@@ -86,7 +87,11 @@ const loadWeightHistory = async (bovineId: string) => {
 const saveWeight = async (bovineId: string) => {
   const weight = newWeights.value[bovineId];
   const date = weightDates.value[bovineId];
-  if (!weight || weight <= 0) return;
+  if (!weight || weight <= 0) {
+    weightErrors.value[bovineId] = "Ingresa un peso válido antes de guardar";
+    return;
+  }
+  weightErrors.value[bovineId] = "";
 
   try {
     savingWeight.value[bovineId] = true;
@@ -232,7 +237,10 @@ const filteredBovines = computed(() => {
                             <v-text-field v-model="weightDates[bov.id]" type="date" variant="outlined"
                               density="comfortable" class="mb-2" />
                             <v-text-field v-model.number="newWeights[bov.id]" label="kg" type="number"
-                              variant="outlined" density="comfortable" hide-details>
+                              variant="outlined" density="comfortable"
+                              :error-messages="weightErrors[bov.id]"
+                              @update:model-value="weightErrors[bov.id] = ''"
+                              >
                               <template #append><v-btn color="primary" icon="ph-floppy-disk" variant="flat"
                                   :loading="savingWeight[bov.id]" @click="saveWeight(bov.id)" /></template>
                             </v-text-field>
@@ -254,7 +262,7 @@ const filteredBovines = computed(() => {
                                 <tr>
                                   <th>FECHA</th>
                                   <th class="text-center">Ultimo peso registrado</th>
-                                  <th class="text-center">GANANCIA</th>
+                                  <th class="text-center">GDP (KG)</th>
                                   <th></th>
                                 </tr>
                               </thead>
@@ -268,7 +276,7 @@ const filteredBovines = computed(() => {
                                     <v-chip v-if="i < weightHistory[bov.id].length - 1" color="success" size="x-small"
                                       variant="tonal" class="font-weight-black">
                                       +{{ (parseFloat(log.weight) -
-                                        parseFloat(weightHistory[bov.id][i+1].weight)).toFixed(2) }}
+                                        parseFloat(weightHistory[bov.id][i+1].weight)).toFixed(2) }} KG
                                     </v-chip>
                                   </td>
                                   <td class="text-right"><v-btn icon="ph-trash" size="x-small" variant="text"
