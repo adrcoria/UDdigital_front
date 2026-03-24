@@ -58,5 +58,15 @@ export default class BovineService {
     return http.get(url);
   }
 
+  async getBovinesByType(bovineTypeId: string, search?: string) {
+    const query = new URLSearchParams();
+    if (search) query.append("search", search);
+
+    const queryString = query.toString();
+    const url = queryString
+      ? `${this.path}/bovine-type/${bovineTypeId}?${queryString}`
+      : `${this.path}/bovine-type/${bovineTypeId}`;
+    return http.get(url);
+  }
 
 }

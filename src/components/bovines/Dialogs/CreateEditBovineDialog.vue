@@ -3,7 +3,7 @@ import { ref, watch, computed, nextTick } from "vue";
 import { bovineService, liveStockService, parameterService } from "@/app/http/httpServiceProvider";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 
-const props = defineProps<{ modelValue: boolean; item: any | null }>();
+const props = defineProps<{ modelValue: boolean; item: any | null; initialValues?: Record<string, any>; isCria?: boolean }>();
 const emit = defineEmits(["update:modelValue", "refresh"]);
 
 /* ------------------ State ------------------ */
@@ -20,8 +20,8 @@ const lists = ref<any>({
     sex: [], races: [], types: [], purposes: [], origins: [], owners: [], deathCauses: []
 });
 
-const listMales = ref([]);
-const listFemales = ref([]);
+const listMales = ref<any[]>([]);
+const listFemales = ref<any[]>([]);
 
 const form = ref<any>({
     siniigaEarTag: "",
@@ -80,7 +80,11 @@ const onChangePrecio = () => {
 /* ------------------ Computed: Filtros ------------------ */
 const filteredTypes = computed(() => {
     if (!form.value.sexId) return [];
-    return lists.value.types.filter((t: any) => t.sex?.id === form.value.sexId);
+    const bySex = lists.value.types.filter((t: any) => t.sex?.id === form.value.sexId);
+    if (props.isCria) {
+        return bySex.filter((t: any) => ['BECERRO', 'BECERRA'].includes(t.name?.toUpperCase()));
+    }
+    return bySex;
 });
 
 const filteredPurposes = computed(() => {
@@ -148,8 +152,18 @@ watch(() => form.value.bovineStatus, (newStatus) => {
 });
 
 const onSexChange = () => {
-    form.value.bovineTypeId = null;
     form.value.bovinePurposeId = null;
+    if (props.isCria) {
+        const selectedSex = lists.value.sex.find((s: any) => s.id === form.value.sexId);
+        const sexName = selectedSex?.name?.toUpperCase();
+        const criaTypeName = sexName === 'MACHO' ? 'BECERRO' : sexName === 'HEMBRA' ? 'BECERRA' : null;
+        const criaType = criaTypeName
+            ? lists.value.types.find((t: any) => t.name?.toUpperCase() === criaTypeName)
+            : null;
+        form.value.bovineTypeId = criaType?.id ?? null;
+    } else {
+        form.value.bovineTypeId = null;
+    }
 };
 
 /* ------------------ Data Loading ------------------ */
@@ -231,6 +245,15 @@ watch(() => props.modelValue, async (val) => {
                 onChangePrecio();
             } else {
                 resetForm();
+                if (props.initialValues) {
+                    Object.assign(form.value, props.initialValues);
+                }
+                if (props.isCria) {
+                    const hatoOrigin = lists.value.origins.find(
+                        (o: any) => o.name?.toUpperCase().includes('HATO')
+                    );
+                    if (hatoOrigin) form.value.bovineOriginId = hatoOrigin.id;
+                }
             }
         } catch (error) {
             showErrorAlert("Error al cargar datos del servidor");
@@ -289,11 +312,12 @@ const save = async () => {
         if (props.item?.id) {
             await bovineService.updateBovine(props.item.id, finalPayload);
             showSuccessAlert("Bovino actualizado");
+            emit("refresh", null);
         } else {
-            await bovineService.createBovine(finalPayload);
+            const res = await bovineService.createBovine(finalPayload);
             showSuccessAlert("Bovino registrado");
+            emit("refresh", res.data?.data?.id ?? null);
         }
-        emit("refresh");
         dialog.value = false;
     } catch (error: any) {
         const serverResponse = error.response?.data;
@@ -380,7 +404,7 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                                 variant="outlined" /></v-col>
                         <v-col cols="12" md="3"><v-autocomplete label="Origen *" v-model="form.bovineOriginId"
                                 :items="lists.origins" item-title="name" item-value="id" :rules="[rules.required]"
-                                variant="outlined" /></v-col>
+                                variant="outlined" :disabled="isCria" /></v-col>
 
                         <v-col cols="12" v-if="isCompra">
                             <v-text-field label="Valor de Compra *" type="number" v-model.number="form.purchaseValue"
@@ -393,12 +417,37 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
 
                         <v-col cols="12" v-if="isHato">
                             <v-row dense>
-                                <v-col cols="12" md="6"><v-autocomplete label="Padre" v-model="form.fatherId"
-                                        :items="listMales" item-title="name" item-value="id" variant="outlined"
-                                        clearable /></v-col>
-                                <v-col cols="12" md="6"><v-autocomplete label="Madre" v-model="form.motherId"
-                                        :items="listFemales" item-title="name" item-value="id" variant="outlined"
-                                        clearable /></v-col>
+                                <v-col cols="12" md="6">
+                                    <v-autocomplete label="Padre" v-model="form.fatherId"
+                                        :items="listMales"
+                                        :item-title="(b: any) => `${b.name} (${b.internalEarTag})`"
+                                        item-value="id" variant="outlined" clearable>
+                                        <template #item="{ props: p, item }">
+                                            <v-list-item v-bind="p"
+                                                :title="item.raw.name"
+                                                :subtitle="`Arete: ${item.raw.internalEarTag}`" />
+                                        </template>
+                                        <template #selection="{ item }">
+                                            {{ item.raw.name }} — {{ item.raw.internalEarTag }}
+                                        </template>
+                                    </v-autocomplete>
+                                </v-col>
+                                <v-col cols="12" md="6">
+                                    <v-autocomplete label="Madre" v-model="form.motherId"
+                                        :items="listFemales"
+                                        :item-title="(b: any) => `${b.name} (${b.internalEarTag})`"
+                                        item-value="id" variant="outlined" clearable
+                                        :disabled="isCria">
+                                        <template #item="{ props: p, item }">
+                                            <v-list-item v-bind="p"
+                                                :title="item.raw.name"
+                                                :subtitle="`Arete: ${item.raw.internalEarTag}`" />
+                                        </template>
+                                        <template #selection="{ item }">
+                                            {{ item.raw.name }} — {{ item.raw.internalEarTag }}
+                                        </template>
+                                    </v-autocomplete>
+                                </v-col>
                             </v-row>
                         </v-col>
 

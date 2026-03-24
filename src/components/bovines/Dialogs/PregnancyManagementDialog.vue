@@ -349,10 +349,14 @@ const headers = [
                       <!-- Semental del hato -->
                       <v-col cols="12" md="4" v-if="showHatoMale">
                         <v-autocomplete v-model="form.idMaleBovine" :items="listMales"
-                          item-title="name" item-value="id" label="Semental del Hato"
+                          :item-title="(b: any) => `${b.name} ${b.internalEarTag ?? ''}`"
+                          item-value="id" label="Semental del Hato"
                           variant="outlined" density="comfortable" clearable :rules="[required]">
                           <template #item="{ props: itemProps, item }">
-                            <v-list-item v-bind="itemProps" :subtitle="`Arete: ${item.raw.internalEarTag}`" />
+                            <v-list-item v-bind="itemProps" :title="item.raw.name" :subtitle="`Arete: ${item.raw.internalEarTag}`" />
+                          </template>
+                          <template #selection="{ item }">
+                            {{ item.raw.name }} — {{ item.raw.internalEarTag }}
                           </template>
                         </v-autocomplete>
                       </v-col>
@@ -382,10 +386,14 @@ const headers = [
                       <!-- Donadora interna -->
                       <v-col cols="12" md="5" v-if="showHatoDonor">
                         <v-autocomplete v-model="form.idEmbryoDonorBovine" :items="listFemales"
-                          item-title="name" item-value="id" label="Vaca Donadora (del hato)"
+                          :item-title="(b: any) => `${b.name} ${b.internalEarTag ?? ''}`"
+                          item-value="id" label="Vaca Donadora (del hato)"
                           variant="outlined" density="comfortable" clearable :rules="[required]">
                           <template #item="{ props: itemProps, item }">
-                            <v-list-item v-bind="itemProps" :subtitle="`Arete: ${item.raw.internalEarTag}`" />
+                            <v-list-item v-bind="itemProps" :title="item.raw.name" :subtitle="`Arete: ${item.raw.internalEarTag}`" />
+                          </template>
+                          <template #selection="{ item }">
+                            {{ item.raw.name }} — {{ item.raw.internalEarTag }}
                           </template>
                         </v-autocomplete>
                       </v-col>

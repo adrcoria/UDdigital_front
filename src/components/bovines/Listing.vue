@@ -8,6 +8,7 @@ import BovinePhotosDialog from "./Dialogs/BovinePhotosDialog.vue"; // Nuevo Comp
 import CreateEditBovineDialog from "./Dialogs/CreateEditBovineDialog.vue";
 import PregnancyManagementDialog from "./Dialogs/PregnancyManagementDialog.vue"
 import HeatManagementDialog from "./Dialogs/HeatManagementDialog.vue"
+import BirthManagementDialog from "./Dialogs/BirthManagementDialog.vue"
 import { bovineService } from "@/app/http/httpServiceProvider";
 import { showErrorAlert, showSuccessAlert } from "@/app/services/alertService";
 
@@ -37,6 +38,7 @@ const confirmationDialog = ref(false);
 const itemToDelete = ref<any | null>(null);
 const pregnancyDialog = ref(false);
 const heatDialog = ref(false);
+const birthDialog = ref(false);
 
 const deleting = ref(false);
 
@@ -128,6 +130,10 @@ const onSelectAction = async (option: string, item: any) => {
     heatDialog.value = false;
     await nextTick();
     heatDialog.value = true;
+  } else if (option === "birth") {
+    birthDialog.value = false;
+    await nextTick();
+    birthDialog.value = true;
   }
 };
 
@@ -331,6 +337,9 @@ onMounted(getItems);
     @refresh="getItems" />
 
   <HeatManagementDialog v-if="heatDialog" v-model="heatDialog" :bovine="selectedItem"
+    @refresh="getItems" />
+
+  <BirthManagementDialog v-if="birthDialog" v-model="birthDialog" :bovine="selectedItem"
     @refresh="getItems" />
 
   <RemoveItemConfirmationDialog v-model="confirmationDialog" :loading="deleting" @onConfirm="confirmDelete" />
