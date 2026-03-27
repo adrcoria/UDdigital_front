@@ -3,6 +3,7 @@ import { ref, watch } from "vue";
 import { heatService, usuariosService } from "@/app/http/httpServiceProvider";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 import Table from "@/app/common/components/Table.vue";
+import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
 
 const props = defineProps<{
   modelValue: boolean;
@@ -20,16 +21,37 @@ const deleting = ref(false);
 const isEditing = ref(false);
 const editingId = ref<string | null>(null);
 const itemToDelete = ref<string | null>(null);
+const confirmDeleteDialog = ref(false);
 
 const page = ref(1);
 const config = ref({ page: 1, start: 0, end: 0, noOfItems: 0, itemsPerPage: 5 });
 
 const users = ref<any[]>([]);
+const formRef = ref<any>(null);
+
+const rules = {
+  required: (v: any) => !!v || "Campo obligatorio",
+  timeEndRequired: (v: any) => {
+    if (form.value.heatDateEnd && !v) return "Si captura fecha fin, la hora fin es obligatoria";
+    if (!form.value.heatDateEnd && v) return "Si captura hora fin, la fecha fin es obligatoria";
+    return true;
+  },
+  dateEndRequired: (v: any) => {
+    if (form.value.heatTimeEnd && !v) return "Si captura hora fin, la fecha fin es obligatoria";
+    if (!form.value.heatTimeEnd && v) return "Si captura fecha fin, la hora fin es obligatoria";
+    return true;
+  }
+};
+
+const now = new Date();
+const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
 const form = ref({
   idUser: null as string | null,
-  heatDateInit: new Date().toISOString().substring(0, 10),
+  heatDateInit: now.toISOString().substring(0, 10),
+  heatTimeInit: currentTime,
   heatDateEnd: null as string | null,
+  heatTimeEnd: null as string | null,
   comments: ""
 });
 
@@ -67,14 +89,20 @@ const loadHistory = async () => {
 
 /* ------------------ Guardar ------------------ */
 const saveHeat = async () => {
+  const { valid } = await formRef.value.validate();
+  if (!valid) return;
+
   try {
     saving.value = true;
+
+    const buildDateTime = (date: string, time: string | null) =>
+      date && time ? `${date}T${time}` : date || null;
 
     if (isEditing.value) {
       const payload = {
         idUser: form.value.idUser!,
-        heatDateInit: form.value.heatDateInit,
-        heatDateEnd: form.value.heatDateEnd || null,
+        heatDateInit: buildDateTime(form.value.heatDateInit, form.value.heatTimeInit)!,
+        heatDateEnd: buildDateTime(form.value.heatDateEnd!, form.value.heatTimeEnd) || null,
         comments: form.value.comments
       };
       await heatService.updateHeat(editingId.value!, payload);
@@ -83,8 +111,8 @@ const saveHeat = async () => {
       const payload = {
         idBovine: props.bovine.id,
         idUser: form.value.idUser!,
-        heatDateInit: form.value.heatDateInit,
-        heatDateEnd: form.value.heatDateEnd || null,
+        heatDateInit: buildDateTime(form.value.heatDateInit, form.value.heatTimeInit)!,
+        heatDateEnd: buildDateTime(form.value.heatDateEnd!, form.value.heatTimeEnd) || null,
         comments: form.value.comments
       };
       await heatService.createHeat(payload);
@@ -101,18 +129,23 @@ const saveHeat = async () => {
 };
 
 /* ------------------ Eliminar ------------------ */
-const deleteHeat = async (id: string) => {
+const confirmDelete = (id: string) => {
+  itemToDelete.value = id;
+  confirmDeleteDialog.value = true;
+};
+
+const deleteHeat = async () => {
   try {
     deleting.value = true;
-    itemToDelete.value = id;
-    await heatService.deleteHeat(id);
+    await heatService.deleteHeat(itemToDelete.value!);
     showSuccessAlert("Registro de celo eliminado");
+    confirmDeleteDialog.value = false;
+    itemToDelete.value = null;
     loadHistory();
   } catch {
     showErrorAlert("Error al eliminar el registro");
   } finally {
     deleting.value = false;
-    itemToDelete.value = null;
   }
 };
 
@@ -129,7 +162,9 @@ const openEdit = (item: any) => {
   form.value = {
     idUser: item.user?.id || null,
     heatDateInit: item.heatDateInit ? item.heatDateInit.substring(0, 10) : "",
+    heatTimeInit: item.heatDateInit?.length > 10 ? item.heatDateInit.substring(11, 16) : "",
     heatDateEnd: item.heatDateEnd ? item.heatDateEnd.substring(0, 10) : null,
+    heatTimeEnd: item.heatDateEnd?.length > 10 ? item.heatDateEnd.substring(11, 16) : null,
     comments: item.comments || ""
   };
   showForm.value = true;
@@ -139,10 +174,13 @@ const closeForm = () => {
   showForm.value = false;
   isEditing.value = false;
   editingId.value = null;
+  const d = new Date();
   form.value = {
     idUser: null,
-    heatDateInit: new Date().toISOString().substring(0, 10),
+    heatDateInit: d.toISOString().substring(0, 10),
+    heatTimeInit: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
     heatDateEnd: null,
+    heatTimeEnd: null,
     comments: ""
   };
 };
@@ -152,6 +190,7 @@ watch(page, loadHistory);
 watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
     page.value = 1;
+    loading.value = true;
     closeForm();
     await loadUsers();
     loadHistory();
@@ -191,6 +230,7 @@ const headers = [
                 <div class="text-subtitle-1 font-weight-bold mb-4 text-pink-darken-2">
                   {{ isEditing ? 'Editar registro de celo' : 'Nuevo registro de celo' }}
                 </div>
+                <v-form ref="formRef">
                 <v-row dense>
                   <v-col cols="12" md="3">
                     <v-select
@@ -201,27 +241,51 @@ const headers = [
                       label="Responsable"
                       variant="outlined"
                       density="comfortable"
+                      :rules="[rules.required]"
                     />
                   </v-col>
 
-                  <v-col cols="12" md="3">
+                  <v-col cols="12" md="2">
                     <v-text-field
                       v-model="form.heatDateInit"
                       type="date"
-                      label="Fecha de Inicio"
+                      label="Fecha Inicio"
                       variant="outlined"
                       density="comfortable"
+                      :rules="[rules.required]"
+                    />
+                  </v-col>
+                  <v-col cols="12" md="2">
+                    <v-text-field
+                      v-model="form.heatTimeInit"
+                      type="time"
+                      label="Hora Inicio"
+                      variant="outlined"
+                      density="comfortable"
+                      :rules="[rules.required]"
                     />
                   </v-col>
 
-                  <v-col cols="12" md="3">
+                  <v-col cols="12" md="2">
                     <v-text-field
                       v-model="form.heatDateEnd"
                       type="date"
-                      label="Fecha de Fin (opcional)"
+                      label="Fecha Fin (opcional)"
                       variant="outlined"
                       density="comfortable"
                       clearable
+                      :rules="[rules.dateEndRequired]"
+                    />
+                  </v-col>
+                  <v-col cols="12" md="2">
+                    <v-text-field
+                      v-model="form.heatTimeEnd"
+                      type="time"
+                      label="Hora Fin (opcional)"
+                      variant="outlined"
+                      density="comfortable"
+                      clearable
+                      :rules="[rules.timeEndRequired]"
                     />
                   </v-col>
 
@@ -232,7 +296,7 @@ const headers = [
                       variant="outlined"
                       density="comfortable"
                       rows="2"
-                      hide-details
+                      :rules="[rules.required]"
                     />
                   </v-col>
                 </v-row>
@@ -243,6 +307,7 @@ const headers = [
                     Guardar
                   </v-btn>
                 </v-card-actions>
+                </v-form>
               </v-card>
             </v-col>
           </v-expand-transition>
@@ -254,16 +319,16 @@ const headers = [
                 <template #body>
                   <tr v-for="item in history" :key="item.id">
                     <td class="font-weight-bold">
-                      {{ item.heatDateInit ? new Date(item.heatDateInit).toLocaleDateString() : '---' }}
+                      {{ item.heatDateInit ? new Date(item.heatDateInit).toLocaleString() : '---' }}
                     </td>
                     <td>
-                      {{ item.heatDateEnd ? new Date(item.heatDateEnd).toLocaleDateString() : '---' }}
+                      {{ item.heatDateEnd ? new Date(item.heatDateEnd).toLocaleString() : '---' }}
                     </td>
                     <td class="text-caption">{{ item.user ? `${item.user.name} ${item.user.lastName}` : '---' }}</td>
                     <td class="text-caption text-grey-darken-1">{{ item.comments || '---' }}</td>
                     <td class="text-center">
                       <v-btn icon="ph-pencil" size="small" variant="text" color="primary" @click="openEdit(item)" />
-                      <v-btn icon="ph-trash" size="small" variant="text" color="error" :loading="deleting && itemToDelete === item.id" @click="deleteHeat(item.id)" />
+                      <v-btn icon="ph-trash" size="small" variant="text" color="error" :loading="deleting && itemToDelete === item.id" @click="confirmDelete(item.id)" />
                     </td>
                   </tr>
 
@@ -278,4 +343,11 @@ const headers = [
       </v-container>
     </v-card>
   </v-dialog>
+
+  <RemoveItemConfirmationDialog
+    v-if="confirmDeleteDialog"
+    v-model="confirmDeleteDialog"
+    :loading="deleting"
+    @onConfirm="deleteHeat"
+  />
 </template>

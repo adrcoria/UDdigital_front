@@ -69,4 +69,16 @@ export default class BovineService {
     return http.get(url);
   }
 
+  async deprecateInternalEarTag(payload: { internalEarTag: string; newInternalEarTag: string }) {
+    return http.post(`${this.path}/deprecate-internal-ear-tag`, payload);
+  }
+
+  async deprecateSiniigaEarTag(payload: { siniigaEarTag: string; newSiniigaEarTag: string }) {
+    return http.post(`${this.path}/deprecate-siniiga-ear-tag`, payload);
+  }
+
+  async killBovine(id: string, payload: { deathDate: string; deathCauseId: string; deathComments: string }) {
+    return http.patch(`${this.path}/${id}/kill`, payload);
+  }
+
 }

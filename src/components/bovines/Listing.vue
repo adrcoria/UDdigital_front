@@ -9,6 +9,8 @@ import CreateEditBovineDialog from "./Dialogs/CreateEditBovineDialog.vue";
 import PregnancyManagementDialog from "./Dialogs/PregnancyManagementDialog.vue"
 import HeatManagementDialog from "./Dialogs/HeatManagementDialog.vue"
 import BirthManagementDialog from "./Dialogs/BirthManagementDialog.vue"
+import ChangeEarTagDialog from "./Dialogs/ChangeEarTagDialog.vue"
+import KillBovineDialog from "./Dialogs/KillBovineDialog.vue"
 import { bovineService } from "@/app/http/httpServiceProvider";
 import { showErrorAlert, showSuccessAlert } from "@/app/services/alertService";
 
@@ -39,6 +41,8 @@ const itemToDelete = ref<any | null>(null);
 const pregnancyDialog = ref(false);
 const heatDialog = ref(false);
 const birthDialog = ref(false);
+const changeEarTagDialog = ref(false);
+const killBovineDialog = ref(false);
 
 const deleting = ref(false);
 
@@ -63,21 +67,26 @@ const formatRaces = (raceAssignments: any[]) => {
     .join(', ');
 };
 const getActionMenu = (item: any) => {
+  if (item.bovineStatus === 'MUERTO') {
+    return [{ title: "Ficha de vida", icon: "ph-file-text", value: "view" }];
+  }
+
   const menu: any[] = [
     { title: "Ficha de vida", icon: "ph-file-text", value: "view" },
     { title: "Gestionar Fotos", icon: "ph-camera", value: "photos" },
     { title: "Editar datos", icon: "ph-pencil", value: "edit" },
   ];
 
-  // Restricción: Solo hembras ven opciones reproductivas
   if (item.sex?.name === 'HEMBRA') {
     menu.push(
       { title: "Registrar Celo", icon: "ph-thermometer-hot", value: "heat" },
       { title: "Registrar Preñez", icon: "ph-baby", value: "pregnancy" },
-      { title: "Registrar Parto", icon: "ph-baby-carriage", value: "birth" }
+      { title: "Registrar Parto", icon: "ph-cake", value: "birth" }
     );
   }
 
+  menu.push({ title: "Cambio de Arete Interno", icon: "ph-tag", value: "changeEarTag" });
+  menu.push({ title: "Registrar Defunción", icon: "ph-skull", value: "kill" });
   menu.push({ title: "Eliminar", icon: "ph-trash", value: "delete" });
 
   return menu;
@@ -134,6 +143,14 @@ const onSelectAction = async (option: string, item: any) => {
     birthDialog.value = false;
     await nextTick();
     birthDialog.value = true;
+  } else if (option === "changeEarTag") {
+    changeEarTagDialog.value = false;
+    await nextTick();
+    changeEarTagDialog.value = true;
+  } else if (option === "kill") {
+    killBovineDialog.value = false;
+    await nextTick();
+    killBovineDialog.value = true;
   }
 };
 
@@ -341,6 +358,10 @@ onMounted(getItems);
 
   <BirthManagementDialog v-if="birthDialog" v-model="birthDialog" :bovine="selectedItem"
     @refresh="getItems" />
+
+  <ChangeEarTagDialog v-if="changeEarTagDialog" v-model="changeEarTagDialog" :bovine="selectedItem" @refresh="getItems" />
+
+  <KillBovineDialog v-if="killBovineDialog" v-model="killBovineDialog" :bovine="selectedItem" @refresh="getItems" />
 
   <RemoveItemConfirmationDialog v-model="confirmationDialog" :loading="deleting" @onConfirm="confirmDelete" />
 </template>

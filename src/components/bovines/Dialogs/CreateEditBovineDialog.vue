@@ -20,6 +20,26 @@ const lists = ref<any>({
     sex: [], races: [], types: [], purposes: [], origins: [], owners: [], deathCauses: []
 });
 
+const reproductiveStatusOptions = computed(() => {
+    if (!form.value.sexId) return [];
+    const selectedSex = lists.value.sex.find((s: any) => s.id === form.value.sexId);
+    const sexName = selectedSex?.name?.toUpperCase();
+    if (sexName === 'MACHO') {
+        return [
+            { value: 'Descanso', title: 'Descanso' },
+            { value: 'Empadre', title: 'Empadre' },
+            { value: 'Donador', title: 'Donador' },
+        ];
+    }
+    if (sexName === 'HEMBRA') {
+        return [
+            { value: 'Preñada', title: 'Preñada' },
+            { value: 'Vacia', title: 'Vacia' },
+        ];
+    }
+    return [];
+});
+
 const listMales = ref<any[]>([]);
 const listFemales = ref<any[]>([]);
 
@@ -47,6 +67,7 @@ const form = ref<any>({
     deathDate: "",
     deathCauseId: null,
     deathComments: "",
+    reproductiveStatus: null,
     raceAssignments: []
 });
 
@@ -67,7 +88,8 @@ const resetForm = () => {
         saleValue: 0, purchaseValue: 0, netWeight: 0, gdpTotal: 0.8,
         sexId: null, bovineOriginId: null, bovineTypeId: null, bovinePurposeId: null,
         livestockOwnerId: null, fatherId: null, motherId: null,
-        bovineStatus: "VIVO", deathDate: "", deathCauseId: null, deathComments: ""
+        bovineStatus: "VIVO", deathDate: "", deathCauseId: null, deathComments: "",
+        reproductiveStatus: null
     };
     selectedRaces.value = [{ raceId: null, percentage: 100, order: 1 }];
 };
@@ -153,6 +175,7 @@ watch(() => form.value.bovineStatus, (newStatus) => {
 
 const onSexChange = () => {
     form.value.bovinePurposeId = null;
+    form.value.reproductiveStatus = null;
     if (props.isCria) {
         const selectedSex = lists.value.sex.find((s: any) => s.id === form.value.sexId);
         const sexName = selectedSex?.name?.toUpperCase();
@@ -229,7 +252,8 @@ watch(() => props.modelValue, async (val) => {
                     livestockOwnerId: serverItem.livestockOwner?.id || serverItem.livestockOwnerId,
                     fatherId: serverItem.father?.id || serverItem.fatherId,
                     motherId: serverItem.mother?.id || serverItem.motherId,
-                    deathCauseId: serverItem.deathCause?.id || serverItem.deathCauseId
+                    deathCauseId: serverItem.deathCause?.id || serverItem.deathCauseId,
+                    reproductiveStatus: serverItem.reproductiveStatus || null
                 };
 
                 if (serverItem.raceAssignments?.length) {
@@ -302,6 +326,7 @@ const save = async () => {
             deathDate: form.value.deathDate,
             deathCauseId: form.value.deathCauseId,
             deathComments: form.value.deathComments,
+            reproductiveStatus: form.value.reproductiveStatus,
             raceAssignments: selectedRaces.value.map((r, i) => ({
                 raceId: r.raceId,
                 percentage: Number(r.percentage),
@@ -368,9 +393,11 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                 <v-form ref="formRef">
                     <v-row dense>
                         <v-col cols="12" md="4"><v-text-field label="Arete Siniiga *" v-model="form.siniigaEarTag"
-                                :rules="[rules.required, rules.exact12]" variant="outlined" /></v-col>
+                                :rules="[rules.required, rules.exact12]" variant="outlined"
+                                :readonly="!!item?.id" :bg-color="item?.id ? 'grey-lighten-4' : undefined" /></v-col>
                         <v-col cols="12" md="4"><v-text-field label="Arete Interno *" v-model="form.internalEarTag"
-                                :rules="[rules.required, rules.exact12]" variant="outlined" /></v-col>
+                                :rules="[rules.required, rules.exact12]" variant="outlined"
+                                :readonly="!!item?.id" :bg-color="item?.id ? 'grey-lighten-4' : undefined" /></v-col>
                         <v-col cols="12" md="4"><v-text-field label="Nombre / Apodo *" v-model="form.name"
                                 :rules="[rules.required]" variant="outlined" /></v-col>
 
@@ -406,14 +433,19 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                                 :items="lists.origins" item-title="name" item-value="id" :rules="[rules.required]"
                                 variant="outlined" :disabled="isCria" /></v-col>
 
+                        <v-col cols="12" md="4" v-if="form.sexId">
+                            <v-select label="Estatus Reproductivo *" v-model="form.reproductiveStatus"
+                                :items="reproductiveStatusOptions" item-title="title" item-value="value"
+                                variant="outlined" :rules="[rules.required]" />
+                        </v-col>
+                        <v-col cols="12" :md="form.sexId ? 8 : 12"><v-autocomplete label="Propietario *" v-model="form.livestockOwnerId"
+                                :items="lists.owners" :item-title="(i: any) => `${i.firstName} ${i.lastName}`" item-value="id"
+                                :rules="[rules.required]" variant="outlined" /></v-col>
+
                         <v-col cols="12" v-if="isCompra">
                             <v-text-field label="Valor de Compra *" type="number" v-model.number="form.purchaseValue"
                                 :rules="[rules.purchaseRequired]" variant="outlined" prefix="$" color="success" />
                         </v-col>
-
-                        <v-col cols="12"><v-autocomplete label="Propietario *" v-model="form.livestockOwnerId"
-                                :items="lists.owners" :item-title="i => `${i.firstName} ${i.lastName}`" item-value="id"
-                                :rules="[rules.required]" variant="outlined" /></v-col>
 
                         <v-col cols="12" v-if="isHato">
                             <v-row dense>
@@ -451,21 +483,19 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                             </v-row>
                         </v-col>
 
-                        <v-col cols="12"><v-divider class="my-3" />Estatus y Defunción</v-col>
-                        <v-col cols="12" :md="form.bovineStatus === 'MUERTO' ? 6 : 12"><v-autocomplete
+                        <v-col cols="12" v-if="!item?.id"><v-divider class="my-3" />Estatus y Defunción</v-col>
+                        <v-col v-if="!item?.id" cols="12" :md="form.bovineStatus === 'MUERTO' ? 6 : 12"><v-autocomplete
                                 label="Estatus Actual" v-model="form.bovineStatus" :items="['VIVO', 'MUERTO']"
                                 variant="outlined" /></v-col>
-                        <v-col cols="12" md="6" v-if="form.bovineStatus === 'MUERTO'"><v-text-field
+                        <v-col cols="12" md="6" v-if="!item?.id && form.bovineStatus === 'MUERTO'"><v-text-field
                                 label="Fecha Defunción *" type="date" v-model="form.deathDate"
                                 :rules="[rules.required, rules.noFuture]" :max="today" variant="outlined" /></v-col>
-
-                        <template v-if="form.bovineStatus === 'MUERTO'">
-                            <v-col cols="12" md="6"><v-autocomplete label="Causa de Muerte *"
-                                    v-model="form.deathCauseId" :items="lists.deathCauses" item-title="name"
-                                    item-value="id" :rules="[rules.required]" variant="outlined" /></v-col>
-                            <v-col cols="12" md="6"><v-text-field label="Comentarios de muerte*"
-                                    v-model="form.deathComments" :rules="[rules.required]" variant="outlined" /></v-col>
-                        </template>
+                        <v-col cols="12" md="6" v-if="!item?.id && form.bovineStatus === 'MUERTO'"><v-autocomplete
+                                label="Causa de Muerte *" v-model="form.deathCauseId" :items="lists.deathCauses"
+                                item-title="name" item-value="id" :rules="[rules.required]" variant="outlined" /></v-col>
+                        <v-col cols="12" md="6" v-if="!item?.id && form.bovineStatus === 'MUERTO'"><v-text-field
+                                label="Comentarios de muerte*" v-model="form.deathComments"
+                                :rules="[rules.required]" variant="outlined" /></v-col>
 
                         <v-col cols="12">
                             <v-divider class="my-3" />

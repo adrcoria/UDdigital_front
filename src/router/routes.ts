@@ -112,6 +112,16 @@ const livestockRoutes = [
       authRequired: true,
       layout: DefaultLayout
     }
+  },
+  {
+    path: "/ganaderia/leche",
+    name: "LivestockLeche",
+    component: () => import("@/views/loteLeche/LoteLeche.vue"),
+    meta: {
+      title: "Módulo de Producción de Leche",
+      authRequired: true,
+      layout: DefaultLayout
+    }
   }
 ];
 

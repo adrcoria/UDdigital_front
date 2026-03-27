@@ -246,6 +246,7 @@ watch(page, loadHistory);
 watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
     page.value = 1;
+    loading.value = true;
     closeForm();
     await loadCatalogues();
     loadHistory();

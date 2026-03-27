@@ -39,7 +39,8 @@ const bovineSonOptions = ref<any[]>([]); // raw bovine objects
 const form = ref({
   idUser: null as string | null,
   idBovineSon: null as string | null,
-  birthDate: new Date().toISOString().substring(0, 10)
+  birthDate: new Date().toISOString().substring(0, 10),
+  comments: ""
 });
 
 /* ------------------ Carga de catálogos (una sola vez) ------------------ */
@@ -108,7 +109,8 @@ const saveBirth = async () => {
       const payload = {
         idUser: form.value.idUser!,
         idBovineSon: form.value.idBovineSon!,
-        birthDate: form.value.birthDate
+        birthDate: form.value.birthDate,
+        comments: form.value.comments
       };
       await birthService.updateBirth(editingId.value!, payload);
       showSuccessAlert("Parto actualizado");
@@ -117,7 +119,8 @@ const saveBirth = async () => {
         idBovine: props.bovine.id,
         idUser: form.value.idUser!,
         idBovineSon: form.value.idBovineSon!,
-        birthDate: form.value.birthDate
+        birthDate: form.value.birthDate,
+        comments: form.value.comments
       };
       await birthService.createBirth(payload);
       showSuccessAlert("Parto registrado");
@@ -166,7 +169,8 @@ const openEdit = (item: any) => {
   form.value = {
     idUser: item.idUser || item.user?.id || null,
     idBovineSon: item.idBovineSon || item.bovineSon?.id || null,
-    birthDate: item.birthDate ? item.birthDate.substring(0, 10) : ""
+    birthDate: item.birthDate ? item.birthDate.substring(0, 10) : "",
+    comments: item.comments || ""
   };
   showForm.value = true;
 };
@@ -178,7 +182,8 @@ const closeForm = () => {
   form.value = {
     idUser: null,
     idBovineSon: null,
-    birthDate: new Date().toISOString().substring(0, 10)
+    birthDate: new Date().toISOString().substring(0, 10),
+    comments: ""
   };
 };
 
@@ -192,6 +197,7 @@ watch(page, loadHistory);
 watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
     page.value = 1;
+    loading.value = true;
     closeForm();
     await Promise.all([loadUsers(), loadBovineSons()]);
     loadHistory();
@@ -202,6 +208,7 @@ const headers = [
   { title: "Fecha de Parto" },
   { title: "Cría" },
   { title: "Responsable" },
+  { title: "Comentarios" },
   { title: "Acciones", align: "center" }
 ];
 </script>
@@ -278,6 +285,15 @@ const headers = [
                       density="comfortable"
                     />
                   </v-col>
+
+                  <v-col cols="12">
+                    <v-text-field
+                      v-model="form.comments"
+                      label="Comentarios"
+                      variant="outlined"
+                      density="comfortable"
+                    />
+                  </v-col>
                 </v-row>
                 <v-card-actions>
                   <v-spacer />
@@ -301,6 +317,7 @@ const headers = [
                     </td>
                     <td class="text-caption">{{ getBovineSonName(item.idBovineSon) }}</td>
                     <td class="text-caption">{{ getUserName(item.idUser) }}</td>
+                    <td class="text-caption">{{ item.comments || '---' }}</td>
                     <td class="text-center">
                       <v-btn icon="ph-pencil" size="small" variant="text" color="primary" @click="openEdit(item)" />
                       <v-btn icon="ph-trash" size="small" variant="text" color="error" :loading="deleting && itemToDelete?.id === item.id" @click="confirmDelete(item)" />
@@ -308,7 +325,7 @@ const headers = [
                   </tr>
 
                   <tr v-if="!loading && history.length === 0">
-                    <td colspan="4" class="text-center py-10 text-grey">Sin registros de parto</td>
+                    <td colspan="5" class="text-center py-10 text-grey">Sin registros de parto</td>
                   </tr>
                 </template>
               </Table>
