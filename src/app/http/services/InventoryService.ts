@@ -53,4 +53,7 @@ export default class InventoryService {
   async deleteInventory(id: string) {
     return http.delete(`/inventory/${id}`);
   }
+  async adjustInventory(id: string, payload: { units: number; type: "add" | "subtract"; purpose: string }) {
+    return http.patch(`/inventory/${id}/adjust`, payload);
+  }
 }

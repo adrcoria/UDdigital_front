@@ -4,6 +4,7 @@ import Table from "@/app/common/components/Table.vue";
 import ListMenuWithIcon from "@/app/common/components/ListMenuWithIcon.vue";
 import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
 import CreateEditStockDialog from "./Dialogs/CreateEditStockDialog.vue";
+import StockMovementDialog from "./Dialogs/StockMovementDialog.vue";
 import { inventoryService } from "@/app/http/httpServiceProvider";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 
@@ -20,6 +21,10 @@ const confirmationDialog = ref(false);
 const itemToDelete = ref<any | null>(null);
 const deleting = ref(false);
 
+const movementDialog = ref(false);
+const movementItem = ref<any | null>(null);
+const movementType = ref<"add" | "subtract">("add");
+
 const headers = [
   { title: "Producto" },
   { title: "Marca" },
@@ -31,6 +36,8 @@ const headers = [
 ];
 
 const actionMenu = [
+  { title: "Entrada", icon: "ph-arrow-circle-down", value: "add" },
+  { title: "Salida", icon: "ph-arrow-circle-up", value: "subtract" },
   { title: "Editar", icon: "ph-pencil", value: "edit" },
   { title: "Eliminar", icon: "ph-trash", value: "delete" },
 ];
@@ -75,6 +82,10 @@ const onSelectAction = (option: string, item: any) => {
   } else if (option === "delete") {
     itemToDelete.value = item;
     confirmationDialog.value = true;
+  } else if (option === "add" || option === "subtract") {
+    movementItem.value = item;
+    movementType.value = option;
+    movementDialog.value = true;
   }
 };
 
@@ -163,4 +174,12 @@ onMounted(getItems);
   />
 
   <RemoveItemConfirmationDialog v-model="confirmationDialog" :loading="deleting" @onConfirm="confirmDelete" />
+
+  <StockMovementDialog
+    v-if="movementDialog"
+    v-model="movementDialog"
+    :item="movementItem"
+    :type="movementType"
+    @refresh="getItems"
+  />
 </template>

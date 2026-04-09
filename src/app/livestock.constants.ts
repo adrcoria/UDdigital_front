@@ -18,4 +18,5 @@ export const BOVINE_TYPE_IDS = {
 export const BATCH_TYPE_IDS = {
   ENGORDA:          "5ed37fc4-28a6-4e21-9541-0ab072b8186e",
   PRODUCCION_LECHE: "e5c750ea-b81d-46e3-92fb-5237df6f4418",
+  VACUNACION:       "8609942c-3447-11f1-8f80-dae8d4b877ba",
 } as const;

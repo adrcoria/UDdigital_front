@@ -74,6 +74,16 @@ const configRoutes = [
       authRequired: true,
       layout: DefaultLayout
     }
+  },
+  {
+    path: "/configuraciones/rancheros",
+    name: "Rancheros",
+    component: () => import("@/views/rancheros/Rancheros.vue"),
+    meta: {
+      title: "Rancheros",
+      authRequired: true,
+      layout: DefaultLayout
+    }
   }
 ];
 
@@ -119,6 +129,16 @@ const livestockRoutes = [
     component: () => import("@/views/loteLeche/LoteLeche.vue"),
     meta: {
       title: "Módulo de Producción de Leche",
+      authRequired: true,
+      layout: DefaultLayout
+    }
+  },
+  {
+    path: "/ganaderia/vacunacion",
+    name: "LivestockVacunacion",
+    component: () => import("@/views/loteVacunacion/LoteVacunacion.vue"),
+    meta: {
+      title: "Módulo de Vacunación",
       authRequired: true,
       layout: DefaultLayout
     }

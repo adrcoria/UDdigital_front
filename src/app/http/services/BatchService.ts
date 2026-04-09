@@ -20,6 +20,10 @@ export default class BatchService {
   }
 
   async getBatchById(id: string) {
-  return http.get(`${this.basePath}/${id}`);
-}
+    return http.get(`${this.basePath}/${id}`);
+  }
+
+  async applyVaccineToBatch(id: string, payload: { idProduct: string; idRancher: string }) {
+    return http.post(`${this.basePath}/${id}/vaccine`, payload);
+  }
 }

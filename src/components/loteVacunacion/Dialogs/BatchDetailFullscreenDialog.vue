@@ -1,0 +1,236 @@
+<script lang="ts" setup>
+import { ref, onMounted, computed, watch } from "vue";
+import { batchService, batchBovineService } from "@/app/http/httpServiceProvider";
+import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
+import Table from "@/app/common/components/Table.vue";
+import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
+import ApplyVaccineDialog from "./ApplyVaccineDialog.vue";
+
+const props = defineProps<{
+  modelValue: boolean;
+  batch: any | null;
+}>();
+
+const emit = defineEmits(["update:modelValue", "refresh"]);
+
+const loading = ref(false);
+const localBatch = ref<any>(null);
+const search = ref("");
+const removing = ref(false);
+const confirmDeleteDialog = ref(false);
+const vaccineDialog = ref(false);
+
+const page = ref(1);
+const config = ref({ page: 1, noOfItems: 0, itemsPerPage: 10 });
+const selectedIds = ref<string[]>([]);
+
+const loadBatchDetail = async () => {
+  if (!props.batch?.id) return;
+  try {
+    loading.value = true;
+    const res = await batchService.getBatchById(props.batch.id);
+    localBatch.value = res.data.data;
+    config.value.noOfItems = localBatch.value.bovineCount || 0;
+    selectedIds.value = [];
+  } catch {
+    showErrorAlert("No se pudo obtener el detalle");
+  } finally {
+    loading.value = false;
+  }
+};
+
+const confirmRemoveBovines = async () => {
+  try {
+    removing.value = true;
+    await batchBovineService.removeBovineFromBatch(localBatch.value.id, { idBovines: selectedIds.value });
+    showSuccessAlert("Animales removidos correctamente");
+    confirmDeleteDialog.value = false;
+    selectedIds.value = [];
+    await loadBatchDetail();
+    emit("refresh");
+  } catch {
+    showErrorAlert("Error al remover los animales");
+  } finally {
+    removing.value = false;
+  }
+};
+
+const toggleSelectAll = () => {
+  if (selectedIds.value.length === filteredBovines.value.length) {
+    selectedIds.value = [];
+  } else {
+    selectedIds.value = filteredBovines.value.map((b: any) => b.id);
+  }
+};
+
+watch(page, loadBatchDetail);
+onMounted(() => { if (props.modelValue) loadBatchDetail(); });
+
+const headers = [
+  { title: "Selección", width: "50px", align: "center" },
+  { title: "Arete Interno" },
+  { title: "Nombre" },
+  { title: "Siniiga" },
+  { title: "Sexo" },
+  { title: "Estatus" },
+  { title: "Acciones", align: "center" },
+];
+
+const filteredBovines = computed(() => {
+  const q = search.value.toLowerCase().trim();
+  const list = localBatch.value?.bovines || [];
+  return q
+    ? list.filter((b: any) =>
+        b.internalEarTag?.toLowerCase().includes(q) ||
+        b.name?.toLowerCase().includes(q)
+      )
+    : list;
+});
+</script>
+
+<template>
+  <v-dialog :model-value="modelValue" fullscreen persistent transition="dialog-bottom-transition">
+    <v-card class="bg-grey-lighten-4">
+      <v-toolbar color="teal-darken-1" flat class="px-2">
+        <v-btn icon="ph-x" @click="emit('update:modelValue', false)" />
+        <v-toolbar-title class="font-weight-bold">
+          Campaña: {{ localBatch?.name }}
+        </v-toolbar-title>
+        <v-spacer />
+
+        <v-btn
+          v-if="selectedIds.length > 0"
+          color="error"
+          variant="flat"
+          prepend-icon="ph-trash"
+          class="mr-3 px-5"
+          @click="confirmDeleteDialog = true"
+        >
+          Remover ({{ selectedIds.length }})
+        </v-btn>
+
+        <v-btn
+          color="white"
+          variant="flat"
+          prepend-icon="ph-syringe"
+          class="mr-2 px-5 text-teal-darken-1 font-weight-bold"
+          :disabled="!localBatch || (localBatch?.bovineCount === 0)"
+          @click="vaccineDialog = true"
+        >
+          Aplicar Vacuna al Lote
+        </v-btn>
+      </v-toolbar>
+
+      <v-container fluid class="pa-6">
+        <v-row>
+          <v-col cols="12" md="3">
+            <v-card border flat class="rounded-lg pa-4">
+              <div class="text-overline mb-2 text-teal-darken-1">Resumen de la Campaña</div>
+              <div class="text-h6 font-weight-bold text-uppercase">{{ localBatch?.name }}</div>
+              <v-divider class="my-3" />
+              <div class="text-caption text-grey">Compañía</div>
+              <div class="font-weight-bold">{{ localBatch?.company?.name || '—' }}</div>
+              <v-divider class="my-3" />
+              <div class="text-caption text-grey">Total de animales</div>
+              <v-chip color="teal-darken-1" variant="flat" size="small" class="font-weight-black mt-1">
+                {{ localBatch?.bovineCount || 0 }} CABEZAS
+              </v-chip>
+
+              <v-divider class="my-3" />
+              <v-btn
+                color="teal-darken-1"
+                variant="tonal"
+                block
+                prepend-icon="ph-syringe"
+                :disabled="!localBatch || (localBatch?.bovineCount === 0)"
+                @click="vaccineDialog = true"
+              >
+                Aplicar Vacuna
+              </v-btn>
+            </v-card>
+          </v-col>
+
+          <v-col cols="12" md="9">
+            <v-card border flat class="rounded-lg">
+              <v-card-title class="pa-4 bg-white d-flex align-center">
+                <v-text-field
+                  v-model="search"
+                  label="Buscar por nombre o arete interno..."
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  prepend-inner-icon="ph-magnifying-glass"
+                  class="flex-grow-1"
+                />
+                <v-btn
+                  variant="text"
+                  size="small"
+                  class="ml-4 font-weight-bold"
+                  color="teal-darken-1"
+                  prepend-icon="ph-check-square"
+                  @click="toggleSelectAll"
+                >
+                  {{ selectedIds.length === filteredBovines.length ? 'Desmarcar todos' : 'Seleccionar todos' }}
+                </v-btn>
+              </v-card-title>
+
+              <Table v-model="page" :config="config" :headerItems="headers" :loading="loading" is-pagination>
+                <template #body>
+                  <tr
+                    v-for="bov in filteredBovines"
+                    :key="bov.id"
+                    :class="selectedIds.includes(bov.id) ? 'bg-red-lighten-5' : ''"
+                  >
+                    <td class="text-center">
+                      <v-checkbox-btn v-model="selectedIds" :value="bov.id" color="error" />
+                    </td>
+                    <td><span class="text-h6 font-weight-black text-teal-darken-1">{{ bov.internalEarTag }}</span></td>
+                    <td class="text-uppercase font-weight-medium">{{ bov.name }}</td>
+                    <td>{{ bov.siniigaEarTag || '—' }}</td>
+                    <td>
+                      <v-chip size="x-small" :color="bov.sex?.name === 'MACHO' ? 'blue-darken-1' : 'pink-darken-1'" variant="tonal" label class="font-weight-bold">
+                        {{ bov.sex?.name || 'N/A' }}
+                      </v-chip>
+                    </td>
+                    <td><v-chip size="x-small" color="success" label>{{ bov.bovineStatus }}</v-chip></td>
+                    <td class="text-center">
+                      <v-btn
+                        icon="ph-trash"
+                        size="small"
+                        variant="text"
+                        color="error"
+                        @click="selectedIds = [bov.id]; confirmDeleteDialog = true"
+                      />
+                    </td>
+                  </tr>
+
+                  <tr v-if="!loading && filteredBovines.length === 0">
+                    <td :colspan="headers.length" class="text-center py-10 text-grey-darken-1">
+                      <v-icon size="48" color="grey-lighten-2" class="mb-2">ph-cow</v-icon>
+                      <div>No hay animales en esta campaña</div>
+                    </td>
+                  </tr>
+                </template>
+              </Table>
+            </v-card>
+          </v-col>
+        </v-row>
+      </v-container>
+    </v-card>
+
+    <RemoveItemConfirmationDialog
+      v-model="confirmDeleteDialog"
+      :loading="removing"
+      title="Remover Animales"
+      message="¿Quitar los animales seleccionados de esta campaña?"
+      @onConfirm="confirmRemoveBovines"
+    />
+
+    <ApplyVaccineDialog
+      v-if="vaccineDialog"
+      v-model="vaccineDialog"
+      :batch="localBatch"
+      @refresh="loadBatchDetail"
+    />
+  </v-dialog>
+</template>

@@ -51,6 +51,11 @@ export const menuItems: MenuItemType[] = [
         link: "/configuraciones/empresas",
         // SOLO Super Usuario
         roles: [ROLES.SUPER_USER]
+      },
+      {
+        label: "Rancheros",
+        link: "/configuraciones/rancheros",
+        roles: [ROLES.SUPER_USER, ROLES.ADMIN]
       }
     ]
   },
@@ -117,6 +122,11 @@ export const menuItems: MenuItemType[] = [
       {
         label: 'Producción de Leche',
         link: '/ganaderia/leche',
+        roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
+      },
+      {
+        label: 'Vacunación',
+        link: '/ganaderia/vacunacion',
         roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
       },
     ]
