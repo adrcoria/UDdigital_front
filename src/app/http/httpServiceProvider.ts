@@ -24,6 +24,7 @@ import PregnancyService from "./services/PregnancyService";
 import HeatService from "./services/HeatService";
 import BirthService from "./services/BirthService";
 import MilkProductionService from "./services/MilkProductionService";
+import InventoryService from "./services/InventoryService";
 const heatService = new HeatService();
 const birthService = new BirthService();
 const roleService = new RoleService();
@@ -51,8 +52,10 @@ const batchService = new BatchService();
 const batchBovineService = new BatchBovineService();
 const weightService = new WeightService();
 const milkProductionService = new MilkProductionService();
+const inventoryService = new InventoryService();
 
 export {
+  inventoryService,
   milkProductionService,
   weightService,
   pregnancyService,

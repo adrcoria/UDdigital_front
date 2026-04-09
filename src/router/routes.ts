@@ -152,6 +152,32 @@ const adminRoutes = [
 
 
 /* ======================================================
+ * INVENTARIOS
+ * ====================================================== */
+const inventarioRoutes = [
+  {
+    path: "/inventarios/catalogos",
+    name: "InventarioCatalogos",
+    component: () => import("@/views/inventario/InventarioPage.vue"),
+    meta: {
+      title: "Módulo de Inventarios",
+      authRequired: true,
+      layout: DefaultLayout
+    }
+  },
+  {
+    path: "/inventarios/administrar",
+    name: "InventarioAdmin",
+    component: () => import("@/views/inventario/InventarioAdminPage.vue"),
+    meta: {
+      title: "Administrar Inventario",
+      authRequired: true,
+      layout: DefaultLayout
+    }
+  }
+];
+
+/* ======================================================
  * EXPORT FINAL
  * ====================================================== */
 export const routes = [
@@ -159,5 +185,6 @@ export const routes = [
   ...pagesRoutes,
   ...configRoutes,
   ...adminRoutes,
-  ...livestockRoutes
+  ...livestockRoutes,
+  ...inventarioRoutes
 ];

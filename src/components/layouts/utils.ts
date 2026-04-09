@@ -75,6 +75,25 @@ export const menuItems: MenuItemType[] = [
     ]
   },
   {
+    label: "Inventarios",
+    icon: "ph-package",
+    id: "sidebarInventario",
+    roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA],
+    subMenu: [
+      {
+        label: "Administrar",
+        link: "/inventarios/administrar",
+        roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
+      },
+      {
+        label: "Catálogos",
+        link: "/inventarios/catalogos",
+        roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
+      }
+
+    ]
+  },
+  {
     label: "Ganadería", // Nueva sección
     icon: "ph-paw-print", // O un icono de tu preferencia como 
     id: "sidebarLivestock",
