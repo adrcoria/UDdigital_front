@@ -9,7 +9,7 @@ export default class AccountService {
     return http.post(`${this.basePath}/login`, user);
   }
   async refreshToken(token: string) {
-    return http.post(`${this.basePath}/refresh_token?refresh_token=${token}`, {});
+    return http.post(`${this.basePath}/refresh`, { refreshToken: token });
   }
 
 }

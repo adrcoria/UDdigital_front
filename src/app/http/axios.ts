@@ -101,17 +101,11 @@ axiosInstance.interceptors.response.use(
         if (!refreshToken) throw new Error("No refresh token available");
 
         const resp = await accountService.refreshToken(refreshToken);
-        const {
-          accessToken: newAccessToken,
-          refreshToken: newRefreshToken,
-          accesTokenExpiresIn,
-          refreshTokenExpiresIn,
-        } = resp.data.data;
+        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = resp.data.data;
 
-        localStorage.setItem("accessToken", newAccessToken);
-        localStorage.setItem("accesTokenExpiresIn", accesTokenExpiresIn);
-        localStorage.setItem("refreshToken", newRefreshToken);
-        localStorage.setItem("refreshTokenExpiresIn", refreshTokenExpiresIn);
+        const storage = localStorage.getItem("accessToken") ? localStorage : sessionStorage;
+        storage.setItem("accessToken", newAccessToken);
+        if (newRefreshToken) storage.setItem("refreshToken", newRefreshToken);
 
         axiosInstance.defaults.headers.common.set(
           "Authorization",
@@ -130,14 +124,10 @@ axiosInstance.interceptors.response.use(
         processQueue(err, null);
         sessionStorage.setItem(SESSION_EXPIRED_FLAG, "true");
         sessionStorage.removeItem(SESSION_EXPIRED_ALERT_SHOWN);
-        localStorage.removeItem("accessToken");
-        sessionStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        sessionStorage.removeItem("refreshToken");
-        localStorage.removeItem("accesTokenExpiresIn");
-        localStorage.removeItem("refreshTokenExpiresIn");
-        localStorage.removeItem("user");
-        sessionStorage.removeItem("user");
+        ["accessToken", "refreshToken", "user"].forEach(key => {
+          localStorage.removeItem(key);
+          sessionStorage.removeItem(key);
+        });
         router.push({ path: "/signin" });
         return Promise.reject(err);
       } finally {
