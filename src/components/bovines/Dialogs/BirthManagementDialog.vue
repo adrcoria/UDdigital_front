@@ -5,9 +5,10 @@ import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 import Table from "@/app/common/components/Table.vue";
 import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
 import CreateEditBovineDialog from "./CreateEditBovineDialog.vue";
+import { BOVINE_TYPE_IDS } from "@/app/livestock.constants";
 
-const BECERRO_TYPE_ID = "1cdd9c4f-d9bc-430b-b03f-782d8309fc09";
-const BECERRA_TYPE_ID = "6eff8abc-f6de-4be6-869e-ff9332b77ef8";
+const BECERRO_TYPE_ID = BOVINE_TYPE_IDS.BECERRO;
+const BECERRA_TYPE_ID = BOVINE_TYPE_IDS.BECERRA;
 
 const props = defineProps<{
   modelValue: boolean;
@@ -187,9 +188,34 @@ const closeForm = () => {
   };
 };
 
+const motherRaceAssignments = ref<any[]>([]);
+
+const loadMotherRaces = async () => {
+  // Si el prop ya trae raceAssignments, no consumir el endpoint
+  if (props.bovine?.raceAssignments?.length) {
+    motherRaceAssignments.value = props.bovine.raceAssignments;
+    return;
+  }
+  if (!props.bovine?.id) return;
+  try {
+    const res = await bovineService.getBovineById(props.bovine.id);
+    motherRaceAssignments.value = res.data?.data?.raceAssignments || [];
+  } catch {
+    motherRaceAssignments.value = [];
+  }
+};
+
 const onBovineCreated = async (newId: string | null) => {
   await loadBovineSons();
   if (newId) form.value.idBovineSon = newId;
+};
+
+const openCreateCria = () => {
+  if (!form.value.birthDate) {
+    showErrorAlert("Primero captura la fecha de parto antes de registrar una cría");
+    return;
+  }
+  createBovineDialog.value = true;
 };
 
 watch(page, loadHistory);
@@ -199,7 +225,7 @@ watch(() => props.modelValue, async (isOpen) => {
     page.value = 1;
     loading.value = true;
     closeForm();
-    await Promise.all([loadUsers(), loadBovineSons()]);
+    await Promise.all([loadUsers(), loadBovineSons(), loadMotherRaces()]);
     loadHistory();
   }
 }, { immediate: true });
@@ -251,6 +277,16 @@ const headers = [
                   </v-col>
 
                   <v-col cols="12" md="3">
+                    <v-text-field
+                      v-model="form.birthDate"
+                      type="date"
+                      label="Fecha de Parto"
+                      variant="outlined"
+                      density="comfortable"
+                    />
+                  </v-col>
+
+                  <v-col cols="12" md="3">
                     <v-autocomplete
                       v-model="form.idBovineSon"
                       :items="bovineSonOptions"
@@ -272,18 +308,8 @@ const headers = [
 
                   <v-col cols="auto" class="d-flex align-center pt-1">
                     <v-btn icon="ph-plus-circle" size="small" variant="tonal" color="primary"
-                      @click="createBovineDialog = true"
+                      @click="openCreateCria"
                       title="Registrar nueva cría" />
-                  </v-col>
-
-                  <v-col cols="12" md="3">
-                    <v-text-field
-                      v-model="form.birthDate"
-                      type="date"
-                      label="Fecha de Parto"
-                      variant="outlined"
-                      density="comfortable"
-                    />
                   </v-col>
 
                   <v-col cols="12">
@@ -347,7 +373,7 @@ const headers = [
     v-model="createBovineDialog"
     :item="null"
     :isCria="true"
-    :initialValues="{ motherId: bovine?.id }"
+    :initialValues="{ motherId: bovine?.id, birthDate: form.birthDate, raceAssignments: motherRaceAssignments }"
     @refresh="onBovineCreated"
   />
 </template>

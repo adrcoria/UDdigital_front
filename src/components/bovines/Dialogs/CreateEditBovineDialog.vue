@@ -100,13 +100,37 @@ const onChangePrecio = () => {
 };
 
 /* ------------------ Computed: Filtros ------------------ */
+const ageInMonths = computed(() => {
+    if (!form.value.birthDate) return null;
+    const birth = new Date(form.value.birthDate);
+    const now = new Date();
+    const months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
+    return Math.max(0, months);
+});
+
 const filteredTypes = computed(() => {
     if (!form.value.sexId) return [];
     const bySex = lists.value.types.filter((t: any) => t.sex?.id === form.value.sexId);
+
     if (props.isCria) {
         return bySex.filter((t: any) => ['BECERRO', 'BECERRA'].includes(t.name?.toUpperCase()));
     }
-    return bySex;
+
+    if (ageInMonths.value === null) return bySex;
+
+    // Ordenar por months ascendente y buscar el primer umbral que cubra la edad
+    const sorted = [...bySex].sort((a: any, b: any) => a.months - b.months);
+    const age = ageInMonths.value;
+    const match = sorted.find((t: any) => age <= t.months);
+    // Si supera todos los umbrales, aplica el último (ej. SEMENTAL)
+    return [match ?? sorted[sorted.length - 1]];
+});
+
+// Etapa reproductiva: el tipo seleccionado tiene months >= 37 (VACA, TORO, SEMENTAL)
+const isReproductiveAge = computed(() => {
+    if (!form.value.bovineTypeId || !lists.value.types.length) return false;
+    const selectedType = lists.value.types.find((t: any) => t.id === form.value.bovineTypeId);
+    return selectedType ? selectedType.months >= 37 : false;
 });
 
 const filteredPurposes = computed(() => {
@@ -153,6 +177,27 @@ const rules = {
 /* ------------------ Logic: Watchers ------------------ */
 watch(() => form.value.birthWeight, () => onChangePrecio());
 
+watch(() => form.value.birthDate, () => {
+    if (isEditing.value || !form.value.sexId) return;
+    const options = filteredTypes.value;
+    if (!options.find((t: any) => t.id === form.value.bovineTypeId)) {
+        form.value.bovineTypeId = null;
+    }
+    if (options.length === 1) {
+        form.value.bovineTypeId = options[0].id;
+    }
+});
+
+// Cuando cambia la etapa de vida: si no es reproductiva, asignar "Vacia" y ocultar el campo
+watch(isReproductiveAge, (reproductive) => {
+    if (isEditing.value) return;
+    if (!reproductive) {
+        form.value.reproductiveStatus = 'Vacia';
+    } else {
+        form.value.reproductiveStatus = null;
+    }
+});
+
 watch(() => form.value.bovineOriginId, (newId) => {
     if (isEditing.value) return;
     const origin = lists.value.origins.find((o: any) => o.id === newId);
@@ -186,6 +231,12 @@ const onSexChange = () => {
         form.value.bovineTypeId = criaType?.id ?? null;
     } else {
         form.value.bovineTypeId = null;
+        // Auto-seleccionar si birthDate ya está capturada y hay un único resultado
+        nextTick(() => {
+            if (form.value.birthDate && filteredTypes.value.length === 1) {
+                form.value.bovineTypeId = filteredTypes.value[0].id;
+            }
+        });
     }
 };
 
@@ -271,6 +322,13 @@ watch(() => props.modelValue, async (val) => {
                 resetForm();
                 if (props.initialValues) {
                     Object.assign(form.value, props.initialValues);
+                    if (props.initialValues.raceAssignments?.length) {
+                        selectedRaces.value = props.initialValues.raceAssignments.map((r: any, i: number) => ({
+                            raceId: r.bovineRace?.id || r.raceId,
+                            percentage: Number(r.percentage),
+                            order: i + 1
+                        }));
+                    }
                 }
                 if (props.isCria) {
                     const hatoOrigin = lists.value.origins.find(
@@ -414,7 +472,9 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                         </v-col>
 
                         <v-col cols="12" md="6"><v-text-field label="Fecha Nac. *" type="date" v-model="form.birthDate"
-                                :rules="[rules.required, rules.noFuture]" :max="today" variant="outlined" /></v-col>
+                                :rules="[rules.required, rules.noFuture]" :max="today" variant="outlined"
+                                :readonly="isCria && !!props.initialValues?.birthDate"
+                                :bg-color="isCria && !!props.initialValues?.birthDate ? 'grey-lighten-4' : undefined" /></v-col>
                         <v-col cols="12" md="6"><v-text-field label="Fecha Ingreso Hato *" type="date"
                                 v-model="form.dateAddedToHerd" :rules="[rules.required, rules.noFuture]" :max="today"
                                 variant="outlined" /></v-col>
@@ -433,7 +493,7 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                                 :items="lists.origins" item-title="name" item-value="id" :rules="[rules.required]"
                                 variant="outlined" :disabled="isCria" /></v-col>
 
-                        <v-col cols="12" md="4" v-if="form.sexId">
+                        <v-col cols="12" md="4" v-if="isReproductiveAge">
                             <v-select label="Estatus Reproductivo *" v-model="form.reproductiveStatus"
                                 :items="reproductiveStatusOptions" item-title="title" item-value="value"
                                 variant="outlined" :rules="[rules.required]" />

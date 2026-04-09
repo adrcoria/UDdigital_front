@@ -2,16 +2,12 @@
 import { ref } from "vue";
 import TopFilters from "./TopFilters.vue";
 import Listing from "./Listing.vue";
-
-/** * ID estático obtenido del response de tipos de lote.
- * Esto asegura que este módulo solo gestione ENGORDA.
- */
-const BATCH_TYPE_ENGORDA = "5ed37fc4-28a6-4e21-9541-0ab072b8186e";
+import { BATCH_TYPE_IDS } from "@/app/livestock.constants";
 
 const filters = ref({
   query: "",
   companyId: null,
-  batchTypeId: BATCH_TYPE_ENGORDA, // Forzado para Engorda
+  batchTypeId: BATCH_TYPE_IDS.ENGORDA,
   status: "ACTIVO",
 });
 </script>

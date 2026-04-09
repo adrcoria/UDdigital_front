@@ -2,17 +2,12 @@
 import { ref } from "vue";
 import TopFilters from "./TopFilters.vue";
 import Listing from "./Listing.vue";
-
-/**
- * ID estático obtenido del response de tipos de lote.
- * Asegura que este módulo solo gestione lotes de LECHE.
- */
-const BATCH_TYPE_LECHE = "e5c750ea-b81d-46e3-92fb-5237df6f4418";
+import { BATCH_TYPE_IDS } from "@/app/livestock.constants";
 
 const filters = ref({
   query: "",
   companyId: null,
-  batchTypeId: BATCH_TYPE_LECHE,
+  batchTypeId: BATCH_TYPE_IDS.PRODUCCION_LECHE,
   status: "ACTIVO",
 });
 </script>

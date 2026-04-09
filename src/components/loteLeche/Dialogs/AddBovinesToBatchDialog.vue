@@ -22,7 +22,8 @@ const loadAvailableBovines = async () => {
     const res = await bovineService.getBovines({ page: 1, limit: 1000 });
     const allBovines = res.data?.data?.list || [];
     availableBovines.value = allBovines.filter((b: any) =>
-      Array.isArray(b.batches) && b.batches.length === 0
+      Array.isArray(b.batches) && b.batches.length === 0 &&
+      b.sex?.name !== 'MACHO'
     );
   } catch {
     showErrorAlert("Error al cargar el inventario de animales");
@@ -105,7 +106,7 @@ watch(() => props.modelValue, (val) => {
 
         <div class="d-flex align-center justify-space-between mb-2">
           <span class="text-caption font-weight-bold text-grey-darken-1">
-            {{ filteredBovines.length }} Animales disponibles
+            {{ filteredBovines.length }} Hembras disponibles
           </span>
           <v-btn variant="text" size="small" color="blue-darken-2" @click="toggleAll" :disabled="loading">
             {{ selectedBovineIds.length === filteredBovines.length ? 'Desmarcar todos' : 'Seleccionar todos' }}
@@ -132,8 +133,11 @@ watch(() => props.modelValue, (val) => {
                 <div class="text-body-1 font-weight-bold text-grey-darken-4 mb-1">
                   Nombre: <span class="text-uppercase">{{ bov.name }}</span>
                 </div>
-                <div class="text-caption text-grey-darken-1">
-                  Arete Siniiga: {{ bov.siniigaEarTag || 'N/A' }}
+                <div class="d-flex align-center gap-2 text-caption text-grey-darken-1">
+                  <span>Arete Siniiga: {{ bov.siniigaEarTag || 'N/A' }}</span>
+                  <v-chip size="x-small" color="pink-darken-1" variant="tonal" label class="font-weight-bold">
+                    {{ bov.sex?.name || 'HEMBRA' }}
+                  </v-chip>
                 </div>
               </v-list-item-content>
             </v-list-item>

@@ -100,95 +100,85 @@ watch(() => props.modelValue, (val) => {
 </script>
 
 <template>
-    <v-dialog :model-value="modelValue" @update:model-value="v => emit('update:modelValue', v)" max-width="750px"
-        scrollable persistent>
-        <v-card class="rounded-lg">
-            <v-card-title class="pa-4 bg-primary text-white d-flex align-center text-wrap">
-                <v-icon icon="ph-user-plus" class="mr-3" />
-                <div>
-                    <div class="text-h6 font-weight-bold">Asignar Ganado Disponible</div>
-                    <div class="text-caption">Lote Destino: {{ batch?.name }}</div>
+  <v-dialog :model-value="modelValue" @update:model-value="v => emit('update:modelValue', v)" max-width="750px" scrollable persistent>
+    <v-card class="rounded-lg">
+      <v-card-title class="pa-4 bg-primary text-white d-flex align-center text-wrap">
+        <v-icon icon="ph-user-plus" class="mr-3" />
+        <div>
+          <div class="text-h6 font-weight-bold">Asignar Ganado Disponible</div>
+          <div class="text-caption">Lote Destino: {{ batch?.name }}</div>
+        </div>
+        <v-spacer />
+        <v-btn icon="ph-x" variant="text" color="white" @click="emit('update:modelValue', false)" />
+      </v-card-title>
+
+      <v-card-text class="pa-4">
+        <v-text-field
+          v-model="search"
+          label="Buscar por Nombre o Arete Interno..."
+          variant="outlined"
+          density="comfortable"
+          class="mb-4"
+          clearable
+          hide-details
+        />
+
+        <div class="d-flex align-center justify-space-between mb-2">
+          <span class="text-caption font-weight-bold text-grey-darken-1">
+            {{ filteredBovines.length }} Animales disponibles
+          </span>
+          <v-btn variant="text" size="small" color="primary" @click="toggleAll" :disabled="loading">
+            {{ selectedBovineIds.length === filteredBovines.length ? 'Desmarcar todos' : 'Seleccionar todos' }}
+          </v-btn>
+        </div>
+
+        <v-divider />
+
+        <v-list height="450" class="pa-0">
+          <div v-if="loading" class="text-center py-10">
+            <v-progress-circular indeterminate color="primary" />
+          </div>
+
+          <template v-else-if="filteredBovines.length > 0">
+            <v-list-item v-for="bov in filteredBovines" :key="bov.id" class="border-b py-4">
+              <template #prepend>
+                <v-checkbox-btn v-model="selectedBovineIds" :value="bov.id" color="primary" />
+              </template>
+              <v-list-item-content>
+                <div class="d-flex align-center flex-wrap mb-1">
+                  <span class="text-body-1 font-weight-bold text-primary mr-2">{{ bov.internalEarTag }}</span>
+                  <v-chip size="x-small" color="primary" variant="flat" label class="font-weight-bold">INTERNO</v-chip>
                 </div>
-                <v-spacer />
-                <v-btn icon="ph-x" variant="text" color="white" @click="emit('update:modelValue', false)" />
-            </v-card-title>
-
-            <v-card-text class="pa-4">
-                <v-text-field v-model="search" label="Buscar por Nombre o Arete Interno..." variant="outlined"
-                    density="comfortable" class="mb-4" clearable hide-details />
-
-                <div class="d-flex align-center justify-space-between mb-2">
-                    <span class="text-caption font-weight-bold text-grey-darken-1">
-                        {{ filteredBovines.length }} Animales disponibles
-                    </span>
-                    <v-btn variant="text" size="small" color="primary" @click="toggleAll" :disabled="loading">
-                        {{ selectedBovineIds.length === filteredBovines.length ? 'Desmarcar todos' : 'Seleccionar todos'
-                        }}
-                    </v-btn>
+                <div class="text-body-1 font-weight-bold text-grey-darken-4 mb-1">
+                  Nombre: <span class="text-uppercase">{{ bov.name }}</span>
                 </div>
+                <div class="d-flex align-center gap-2 text-caption text-grey-darken-1">
+                  <span>Arete Siniiga: {{ bov.siniigaEarTag || 'N/A' }}</span>
+                  <v-chip size="x-small" :color="bov.sex?.name === 'MACHO' ? 'blue-darken-1' : 'pink-darken-1'" variant="tonal" label class="font-weight-bold">
+                    {{ bov.sex?.name || 'N/A' }}
+                  </v-chip>
+                </div>
+              </v-list-item-content>
+            </v-list-item>
+          </template>
 
-                <v-divider />
+          <v-container v-else class="text-center py-10">
+            <v-icon size="64" color="grey-lighten-2">ph-selection-background</v-icon>
+            <div class="mt-2 text-grey px-4">No se encontraron animales disponibles.</div>
+          </v-container>
+        </v-list>
+      </v-card-text>
 
-                <v-list height="450" class="pa-0">
-                    <div v-if="loading" class="text-center py-10"><v-progress-circular indeterminate color="primary" />
-                    </div>
+      <v-divider />
 
-                    <template v-else-if="filteredBovines.length > 0">
-                        <v-list-item v-for="bov in filteredBovines" :key="bov.id" class="border-b py-4">
-                            <template v-slot:prepend><v-checkbox-btn v-model="selectedBovineIds" :value="bov.id"
-                                    color="primary" /></template>
-                            <v-list-item-content>
-                                <div class="d-flex align-center flex-wrap mb-1">
-                                    <span class=" text-body-1 font-weight-bold text-primary mr-2">{{ bov.internalEarTag
-                                        }}</span>
-                                    <v-chip size="x-small" color="primary" variant="flat" label
-                                        class="font-weight-bold">INTERNO</v-chip>
-                                </div>
-                                <div class="text-body-1 font-weight-bold text-grey-darken-4 text-wrap mb-1">
-                                    Nombre: <span class="text-uppercase">{{ bov.name }}</span>
-                                </div>
-                                <div class="text-caption text-grey-darken-1">
-                                    Arete Siniiga: {{ bov.siniigaEarTag || 'N/A' }}
-                                </div>
-                            </v-list-item-content>
-                        </v-list-item>
-                    </template>
-
-                    <v-container v-else class="text-center py-10">
-                        <v-icon size="64" color="grey-lighten-2">ph-selection-background</v-icon>
-                        <div class="mt-2 text-grey text-wrap px-4">No se encontraron animales disponibles en la lista.
-                        </div>
-                    </v-container>
-                </v-list>
-            </v-card-text>
-
-            <v-divider />
-
-            <v-card-actions class="pa-4 bg-grey-lighten-4">
-                <v-chip color="primary" variant="flat" class="font-weight-black">{{ selectedBovineIds.length }}
-                    Marcados</v-chip>
-                <v-spacer />
-                <v-btn variant="text" @click="emit('update:modelValue', false)">Cancelar</v-btn>
-                <v-btn color="primary" variant="flat" class="px-8 font-weight-bold" :loading="saving"
-                    :disabled="selectedBovineIds.length === 0" @click="handleSave">Asignar</v-btn>
-            </v-card-actions>
-        </v-card>
-    </v-dialog>
+      <v-card-actions class="pa-4 bg-grey-lighten-4">
+        <v-chip color="primary" variant="flat" class="font-weight-black">{{ selectedBovineIds.length }} Marcados</v-chip>
+        <v-spacer />
+        <v-btn variant="text" @click="emit('update:modelValue', false)">Cancelar</v-btn>
+        <v-btn color="primary" variant="flat" class="px-8 font-weight-bold" :loading="saving" :disabled="selectedBovineIds.length === 0" @click="handleSave">
+          Asignar
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
-
-<style scoped>
-:deep(.v-list-item-title),
-:deep(.v-list-item-subtitle) {
-    white-space: normal !important;
-    overflow: visible !important;
-}
-
-.text-wrap {
-    white-space: normal !important;
-    word-wrap: break-word !important;
-}
-
-.font-weight-black {
-    font-weight: 900 !important;
-}
-</style>

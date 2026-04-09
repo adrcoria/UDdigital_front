@@ -86,7 +86,7 @@ const getBatches = async () => {
     loading.value = true;
     
     const params = {
-      batchTypeId: props.filters.batchTypeId,
+      idBatchType: props.filters.batchTypeId,
       page: page.value,
       limit: config.value.itemsPerPage,
     };
