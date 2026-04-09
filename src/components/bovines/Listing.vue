@@ -11,6 +11,7 @@ import HeatManagementDialog from "./Dialogs/HeatManagementDialog.vue"
 import BirthManagementDialog from "./Dialogs/BirthManagementDialog.vue"
 import ChangeEarTagDialog from "./Dialogs/ChangeEarTagDialog.vue"
 import KillBovineDialog from "./Dialogs/KillBovineDialog.vue"
+import TransferBovineDialog from "./Dialogs/TransferBovineDialog.vue"
 import { bovineService } from "@/app/http/httpServiceProvider";
 import { showErrorAlert, showSuccessAlert } from "@/app/services/alertService";
 
@@ -43,6 +44,7 @@ const heatDialog = ref(false);
 const birthDialog = ref(false);
 const changeEarTagDialog = ref(false);
 const killBovineDialog = ref(false);
+const transferDialog = ref(false);
 
 const deleting = ref(false);
 
@@ -86,6 +88,7 @@ const getActionMenu = (item: any) => {
   }
 
   menu.push({ title: "Cambio de Arete Interno", icon: "ph-tag", value: "changeEarTag" });
+  menu.push({ title: "Transferir a otro rancho", icon: "ph-arrows-left-right", value: "transfer" });
   menu.push({ title: "Registrar Defunción", icon: "ph-skull", value: "kill" });
   menu.push({ title: "Eliminar", icon: "ph-trash", value: "delete" });
 
@@ -151,6 +154,10 @@ const onSelectAction = async (option: string, item: any) => {
     killBovineDialog.value = false;
     await nextTick();
     killBovineDialog.value = true;
+  } else if (option === "transfer") {
+    transferDialog.value = false;
+    await nextTick();
+    transferDialog.value = true;
   }
 };
 
@@ -362,6 +369,8 @@ onMounted(getItems);
   <ChangeEarTagDialog v-if="changeEarTagDialog" v-model="changeEarTagDialog" :bovine="selectedItem" @refresh="getItems" />
 
   <KillBovineDialog v-if="killBovineDialog" v-model="killBovineDialog" :bovine="selectedItem" @refresh="getItems" />
+
+  <TransferBovineDialog v-if="transferDialog" v-model="transferDialog" :bovine="selectedItem" @refresh="getItems" />
 
   <RemoveItemConfirmationDialog v-model="confirmationDialog" :loading="deleting" @onConfirm="confirmDelete" />
 </template>

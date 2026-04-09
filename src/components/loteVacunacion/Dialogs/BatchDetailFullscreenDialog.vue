@@ -19,9 +19,10 @@ const search = ref("");
 const removing = ref(false);
 const confirmDeleteDialog = ref(false);
 const vaccineDialog = ref(false);
+const activeTab = ref("pendientes");
 
 const page = ref(1);
-const config = ref({ page: 1, noOfItems: 0, itemsPerPage: 10 });
+const config = ref({ page: 1, start: 0, end: 0, noOfItems: 0, itemsPerPage: 10 });
 const selectedIds = ref<string[]>([]);
 
 const loadBatchDetail = async () => {
@@ -55,37 +56,55 @@ const confirmRemoveBovines = async () => {
   }
 };
 
+// Solo aplica sobre los pendientes
 const toggleSelectAll = () => {
-  if (selectedIds.value.length === filteredBovines.value.length) {
+  if (selectedIds.value.length === filteredPendientes.value.length) {
     selectedIds.value = [];
   } else {
-    selectedIds.value = filteredBovines.value.map((b: any) => b.id);
+    selectedIds.value = filteredPendientes.value.map((b: any) => b.id);
   }
 };
 
 watch(page, loadBatchDetail);
+// Limpiar selección al cambiar de tab
+watch(activeTab, () => { selectedIds.value = []; });
 onMounted(() => { if (props.modelValue) loadBatchDetail(); });
 
-const headers = [
+const allBovines = computed<any[]>(() => localBatch.value?.bovines || []);
+
+const applySearch = (list: any[]) => {
+  const q = search.value.toLowerCase().trim();
+  if (!q) return list;
+  return list.filter((b) =>
+    b.internalEarTag?.toLowerCase().includes(q) ||
+    b.name?.toLowerCase().includes(q)
+  );
+};
+
+const filteredPendientes = computed(() =>
+  applySearch(allBovines.value.filter((b) => !b.vaccinated))
+);
+
+const filteredVacunados = computed(() =>
+  applySearch(allBovines.value.filter((b) => b.vaccinated))
+);
+
+const headersPendientes = [
   { title: "Selección", width: "50px", align: "center" },
   { title: "Arete Interno" },
   { title: "Nombre" },
   { title: "Siniiga" },
-  { title: "Sexo" },
   { title: "Estatus" },
   { title: "Acciones", align: "center" },
 ];
 
-const filteredBovines = computed(() => {
-  const q = search.value.toLowerCase().trim();
-  const list = localBatch.value?.bovines || [];
-  return q
-    ? list.filter((b: any) =>
-        b.internalEarTag?.toLowerCase().includes(q) ||
-        b.name?.toLowerCase().includes(q)
-      )
-    : list;
-});
+const headersVacunados = [
+  { title: "Arete Interno" },
+  { title: "Nombre" },
+  { title: "Siniiga" },
+  { title: "Estatus" },
+  { title: "Vacunado", align: "center" },
+];
 </script>
 
 <template>
@@ -99,7 +118,7 @@ const filteredBovines = computed(() => {
         <v-spacer />
 
         <v-btn
-          v-if="selectedIds.length > 0"
+          v-if="selectedIds.length > 0 && activeTab === 'pendientes'"
           color="error"
           variant="flat"
           prepend-icon="ph-trash"
@@ -114,7 +133,7 @@ const filteredBovines = computed(() => {
           variant="flat"
           prepend-icon="ph-syringe"
           class="mr-2 px-5 text-teal-darken-1 font-weight-bold"
-          :disabled="!localBatch || (localBatch?.bovineCount === 0)"
+          :disabled="!localBatch || localBatch?.bovineCount === 0"
           @click="vaccineDialog = true"
         >
           Aplicar Vacuna al Lote
@@ -123,6 +142,7 @@ const filteredBovines = computed(() => {
 
       <v-container fluid class="pa-6">
         <v-row>
+          <!-- Resumen -->
           <v-col cols="12" md="3">
             <v-card border flat class="rounded-lg pa-4">
               <div class="text-overline mb-2 text-teal-darken-1">Resumen de la Campaña</div>
@@ -131,18 +151,31 @@ const filteredBovines = computed(() => {
               <div class="text-caption text-grey">Compañía</div>
               <div class="font-weight-bold">{{ localBatch?.company?.name || '—' }}</div>
               <v-divider class="my-3" />
-              <div class="text-caption text-grey">Total de animales</div>
-              <v-chip color="teal-darken-1" variant="flat" size="small" class="font-weight-black mt-1">
-                {{ localBatch?.bovineCount || 0 }} CABEZAS
-              </v-chip>
-
+              <div class="d-flex justify-space-between align-center mb-1">
+                <span class="text-caption text-grey">Total</span>
+                <v-chip color="teal-darken-1" variant="flat" size="x-small" class="font-weight-black">
+                  {{ allBovines.length }} cabezas
+                </v-chip>
+              </div>
+              <div class="d-flex justify-space-between align-center mb-1">
+                <span class="text-caption text-grey">Vacunados</span>
+                <v-chip color="success" variant="flat" size="x-small" class="font-weight-black">
+                  {{ allBovines.filter(b => b.vaccinated).length }}
+                </v-chip>
+              </div>
+              <div class="d-flex justify-space-between align-center">
+                <span class="text-caption text-grey">Pendientes</span>
+                <v-chip color="warning" variant="flat" size="x-small" class="font-weight-black">
+                  {{ allBovines.filter(b => !b.vaccinated).length }}
+                </v-chip>
+              </div>
               <v-divider class="my-3" />
               <v-btn
                 color="teal-darken-1"
                 variant="tonal"
                 block
                 prepend-icon="ph-syringe"
-                :disabled="!localBatch || (localBatch?.bovineCount === 0)"
+                :disabled="!localBatch || localBatch?.bovineCount === 0"
                 @click="vaccineDialog = true"
               >
                 Aplicar Vacuna
@@ -150,9 +183,11 @@ const filteredBovines = computed(() => {
             </v-card>
           </v-col>
 
+          <!-- Tabla con tabs -->
           <v-col cols="12" md="9">
             <v-card border flat class="rounded-lg">
-              <v-card-title class="pa-4 bg-white d-flex align-center">
+              <!-- Buscador -->
+              <v-card-title class="pa-4 bg-white">
                 <v-text-field
                   v-model="search"
                   label="Buscar por nombre o arete interno..."
@@ -160,58 +195,101 @@ const filteredBovines = computed(() => {
                   density="compact"
                   hide-details
                   prepend-inner-icon="ph-magnifying-glass"
-                  class="flex-grow-1"
                 />
-                <v-btn
-                  variant="text"
-                  size="small"
-                  class="ml-4 font-weight-bold"
-                  color="teal-darken-1"
-                  prepend-icon="ph-check-square"
-                  @click="toggleSelectAll"
-                >
-                  {{ selectedIds.length === filteredBovines.length ? 'Desmarcar todos' : 'Seleccionar todos' }}
-                </v-btn>
               </v-card-title>
 
-              <Table v-model="page" :config="config" :headerItems="headers" :loading="loading" is-pagination>
-                <template #body>
-                  <tr
-                    v-for="bov in filteredBovines"
-                    :key="bov.id"
-                    :class="selectedIds.includes(bov.id) ? 'bg-red-lighten-5' : ''"
-                  >
-                    <td class="text-center">
-                      <v-checkbox-btn v-model="selectedIds" :value="bov.id" color="error" />
-                    </td>
-                    <td><span class="text-h6 font-weight-black text-teal-darken-1">{{ bov.internalEarTag }}</span></td>
-                    <td class="text-uppercase font-weight-medium">{{ bov.name }}</td>
-                    <td>{{ bov.siniigaEarTag || '—' }}</td>
-                    <td>
-                      <v-chip size="x-small" :color="bov.sex?.name === 'MACHO' ? 'blue-darken-1' : 'pink-darken-1'" variant="tonal" label class="font-weight-bold">
-                        {{ bov.sex?.name || 'N/A' }}
-                      </v-chip>
-                    </td>
-                    <td><v-chip size="x-small" color="success" label>{{ bov.bovineStatus }}</v-chip></td>
-                    <td class="text-center">
-                      <v-btn
-                        icon="ph-trash"
-                        size="small"
-                        variant="text"
-                        color="error"
-                        @click="selectedIds = [bov.id]; confirmDeleteDialog = true"
-                      />
-                    </td>
-                  </tr>
+              <v-tabs v-model="activeTab" color="teal-darken-1" bg-color="white">
+                <v-tab value="pendientes" prepend-icon="ph-clock">
+                  Pendientes de vacunar
+                  <v-chip size="x-small" color="warning" variant="flat" class="ml-2 font-weight-black">
+                    {{ allBovines.filter(b => !b.vaccinated).length }}
+                  </v-chip>
+                </v-tab>
+                <v-tab value="vacunados" prepend-icon="ph-check-circle">
+                  Vacunados
+                  <v-chip size="x-small" color="success" variant="flat" class="ml-2 font-weight-black">
+                    {{ allBovines.filter(b => b.vaccinated).length }}
+                  </v-chip>
+                </v-tab>
+              </v-tabs>
 
-                  <tr v-if="!loading && filteredBovines.length === 0">
-                    <td :colspan="headers.length" class="text-center py-10 text-grey-darken-1">
-                      <v-icon size="48" color="grey-lighten-2" class="mb-2">ph-cow</v-icon>
-                      <div>No hay animales en esta campaña</div>
-                    </td>
-                  </tr>
-                </template>
-              </Table>
+              <v-divider />
+
+              <v-tabs-window v-model="activeTab">
+                <!-- TAB: PENDIENTES -->
+                <v-tabs-window-item value="pendientes">
+                  <div class="pa-3 bg-white d-flex align-center justify-end">
+                    <v-btn
+                      variant="text"
+                      size="small"
+                      color="teal-darken-1"
+                      prepend-icon="ph-check-square"
+                      @click="toggleSelectAll"
+                      :disabled="filteredPendientes.length === 0"
+                    >
+                      {{ selectedIds.length === filteredPendientes.length && filteredPendientes.length > 0 ? 'Desmarcar todos' : 'Seleccionar todos' }}
+                    </v-btn>
+                  </div>
+                  <Table v-model="page" :config="{ ...config, noOfItems: filteredPendientes.length }" :headerItems="headersPendientes" :loading="loading" is-pagination>
+                    <template #body>
+                      <tr
+                        v-for="bov in filteredPendientes"
+                        :key="bov.id"
+                        :class="selectedIds.includes(bov.id) ? 'bg-red-lighten-5' : ''"
+                      >
+                        <td class="text-center">
+                          <v-checkbox-btn v-model="selectedIds" :value="bov.id" color="error" />
+                        </td>
+                        <td><span class="text-h6 font-weight-black text-teal-darken-1">{{ bov.internalEarTag }}</span></td>
+                        <td class="text-uppercase font-weight-medium">{{ bov.name }}</td>
+                        <td>{{ bov.siniigaEarTag || '—' }}</td>
+                        <td><v-chip size="x-small" color="success" label>{{ bov.bovineStatus }}</v-chip></td>
+                        <td class="text-center">
+                          <v-btn
+                            icon="ph-trash"
+                            size="small"
+                            variant="text"
+                            color="error"
+                            @click="selectedIds = [bov.id]; confirmDeleteDialog = true"
+                          />
+                        </td>
+                      </tr>
+                      <tr v-if="!loading && filteredPendientes.length === 0">
+                        <td :colspan="headersPendientes.length" class="text-center py-10 text-grey-darken-1">
+                          <v-icon size="48" color="grey-lighten-2" class="mb-2">ph-check-circle</v-icon>
+                          <div>Todos los animales han sido vacunados</div>
+                        </td>
+                      </tr>
+                    </template>
+                  </Table>
+                </v-tabs-window-item>
+
+                <!-- TAB: VACUNADOS -->
+                <v-tabs-window-item value="vacunados">
+                  <Table v-model="page" :config="{ ...config, noOfItems: filteredVacunados.length }" :headerItems="headersVacunados" :loading="loading" is-pagination>
+                    <template #body>
+                      <tr v-for="bov in filteredVacunados" :key="bov.id">
+                        <td><span class="text-h6 font-weight-black text-teal-darken-1">{{ bov.internalEarTag }}</span></td>
+                        <td class="text-uppercase font-weight-medium">{{ bov.name }}</td>
+                        <td>{{ bov.siniigaEarTag || '—' }}</td>
+                        <td><v-chip size="x-small" color="success" label>{{ bov.bovineStatus }}</v-chip></td>
+                        <td class="text-center">
+                          <v-chip size="x-small" color="teal-darken-1" variant="flat" label class="font-weight-bold">
+                            <v-icon start size="14">ph-syringe</v-icon>
+                            VACUNADO
+                          </v-chip>
+                        </td>
+                      </tr>
+                      <tr v-if="!loading && filteredVacunados.length === 0">
+                        <td :colspan="headersVacunados.length" class="text-center py-10 text-grey-darken-1">
+                          <v-icon size="48" color="grey-lighten-2" class="mb-2">ph-syringe</v-icon>
+                          <div>Aún no hay animales vacunados en esta campaña</div>
+                        </td>
+                      </tr>
+                    </template>
+                  </Table>
+                </v-tabs-window-item>
+              </v-tabs-window>
             </v-card>
           </v-col>
         </v-row>
