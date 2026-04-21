@@ -8,6 +8,7 @@ import Notifications from "@/components/layouts/topBar/Notifications.vue";
 import Profile from "@/components/layouts/topBar/Profile.vue";
 import MenuComponents from "@/components/layouts/topBar/MenuComponent.vue";
 import MobileMenuComponent from "@/components/layouts/topBar/MobileMenuComponent.vue";
+import SwitchRanchDialog from "@/components/layouts/topBar/SwitchRanchDialog.vue";
 
 import { useLayoutStore } from "@/store/app";
 import { SIDEBAR_SIZE, LAYOUTS, LAYOUT_POSITION } from "@/app/const";
@@ -18,6 +19,7 @@ const { SMALL, DEFAULT } = SIDEBAR_SIZE;
 const state = useLayoutStore();
 const search = ref("");
 const isSmallMenuActive = ref(false);
+const switchRanchDialog = ref(false);
 
 const isSmallSideBar = computed(() => {
   return state.sideBarSize === SMALL;
@@ -137,6 +139,19 @@ onUnmounted(() => {
             <ScreenSize />
             <!-- <SiteMode /> -->
             <!-- <Notifications /> -->
+            <v-tooltip text="Cambiar Rancho" location="bottom">
+              <template #activator="{ props: tooltipProps }">
+                <v-btn
+                  v-bind="tooltipProps"
+                  icon
+                  variant="text"
+                  class="me-1"
+                  @click="switchRanchDialog = true"
+                >
+                  <v-icon icon="ph-swap" size="22" />
+                </v-btn>
+              </template>
+            </v-tooltip>
             <Profile />
           </div>
         </div>
@@ -154,4 +169,6 @@ onUnmounted(() => {
       />
     </v-container>
   </v-app-bar>
+
+  <SwitchRanchDialog v-model="switchRanchDialog" />
 </template>

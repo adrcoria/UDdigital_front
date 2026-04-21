@@ -2,6 +2,7 @@
 import { ref, watch } from "vue";
 import { bovineService, liveStockService } from "@/app/http/httpServiceProvider";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
+import { localDateStr } from "@/app/utils/date";
 
 const props = defineProps<{ modelValue: boolean; bovine: any | null }>();
 const emit = defineEmits(["update:modelValue", "refresh"]);
@@ -10,7 +11,7 @@ const formRef = ref<any>(null);
 const saving = ref(false);
 const deathCauses = ref<any[]>([]);
 
-const today = new Date().toISOString().split('T')[0];
+const today = localDateStr();
 
 const form = ref({
   deathDate: today,

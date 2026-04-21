@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import { ref, watch } from "vue";
-import { heatService, usuariosService } from "@/app/http/httpServiceProvider";
+import { heatService, usuariosService, pregnancyService, birthService } from "@/app/http/httpServiceProvider";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
+import { localDateStr } from "@/app/utils/date";
 import Table from "@/app/common/components/Table.vue";
 import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
 
@@ -31,16 +32,6 @@ const formRef = ref<any>(null);
 
 const rules = {
   required: (v: any) => !!v || "Campo obligatorio",
-  timeEndRequired: (v: any) => {
-    if (form.value.heatDateEnd && !v) return "Si captura fecha fin, la hora fin es obligatoria";
-    if (!form.value.heatDateEnd && v) return "Si captura hora fin, la fecha fin es obligatoria";
-    return true;
-  },
-  dateEndRequired: (v: any) => {
-    if (form.value.heatTimeEnd && !v) return "Si captura hora fin, la fecha fin es obligatoria";
-    if (!form.value.heatTimeEnd && v) return "Si captura fecha fin, la hora fin es obligatoria";
-    return true;
-  }
 };
 
 const now = new Date();
@@ -48,7 +39,7 @@ const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.get
 
 const form = ref({
   idUser: null as string | null,
-  heatDateInit: now.toISOString().substring(0, 10),
+  heatDateInit: localDateStr(now),
   heatTimeInit: currentTime,
   heatDateEnd: null as string | null,
   heatTimeEnd: null as string | null,
@@ -91,6 +82,13 @@ const loadHistory = async () => {
 const saveHeat = async () => {
   const { valid } = await formRef.value.validate();
   if (!valid) return;
+
+  // Evitar duplicado en la misma fecha
+  const duplicate = history.value.find((h: any) => {
+    if (isEditing.value && h.id === editingId.value) return false;
+    return h.heatDateInit?.substring(0, 10) === form.value.heatDateInit;
+  });
+  if (duplicate) return showErrorAlert("Ya existe un registro de celo en esa fecha.");
 
   try {
     saving.value = true;
@@ -149,8 +147,97 @@ const deleteHeat = async () => {
   }
 };
 
+/* ------------------ Validación: preñez activa ------------------ */
+const activePregnancyWarning = ref(false);
+const activePregnancyInfo = ref<any>(null);
+const checkingPregnancy = ref(false);
+
+const hasActivePregnancy = async (): Promise<boolean> => {
+  if (!props.bovine?.id) return false;
+  try {
+    const [resPreg, resBirth, resHeat] = await Promise.all([
+      pregnancyService.getHistory({ idBovine: props.bovine.id, page: 1, limit: 100 }),
+      birthService.getHistory({ idBovine: props.bovine.id, page: 1, limit: 100 }),
+      heatService.getHistory({ idBovine: props.bovine.id, page: 1, limit: 100 })
+    ]);
+
+    const pregnancies: any[] = resPreg.data?.data?.data || resPreg.data?.data || [];
+    const births: any[] = resBirth.data?.data?.data || resBirth.data?.data || [];
+    const heats: any[] = resHeat.data?.data?.data || resHeat.data?.data || [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const active = pregnancies.find((p: any) => {
+      const pregStart = new Date(p.dateInit);
+      const dateEnd = new Date(p.dateEnd);
+      if (dateEnd < today) return false; // ya venció
+      // resuelta por parto
+      if (births.some((b: any) => new Date(b.birthDate) >= pregStart)) return false;
+      // ya desestimada por un celo anterior
+      if (heats.some((h: any) => new Date(h.heatDateInit) >= pregStart)) return false;
+      return true; // genuinamente activa
+    });
+
+    if (active) {
+      activePregnancyInfo.value = active;
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+};
+
+/* ------------------ Validación: celo reciente (< 18 días) ------------------ */
+const recentHeatWarning = ref(false);
+const recentHeatInfo = ref<any>(null);
+const HEAT_MIN_DAYS = 18;
+
+const getRecentHeat = async (): Promise<any | null> => {
+  if (!props.bovine?.id) return null;
+  try {
+    const res = await heatService.getHistory({ idBovine: props.bovine.id, page: 1, limit: 100 });
+    const heats: any[] = res.data?.data?.data || res.data?.data || [];
+    if (!heats.length) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const recent = heats.find((h: any) => {
+      const diff = (today.getTime() - new Date(h.heatDateInit).getTime()) / (1000 * 60 * 60 * 24);
+      return diff < HEAT_MIN_DAYS;
+    });
+    return recent ?? null;
+  } catch { return null; }
+};
+
 /* ------------------ Abrir nuevo / Cerrar form ------------------ */
-const openNewForm = () => {
+const openNewForm = async () => {
+  checkingPregnancy.value = true;
+  const [hasActive, recentHeat] = await Promise.all([hasActivePregnancy(), getRecentHeat()]);
+  checkingPregnancy.value = false;
+
+  if (hasActive) {
+    activePregnancyWarning.value = true;
+  } else if (recentHeat) {
+    recentHeatInfo.value = recentHeat;
+    recentHeatWarning.value = true;
+  } else {
+    closeForm();
+    showForm.value = true;
+  }
+};
+
+const confirmHeatOverride = () => {
+  activePregnancyWarning.value = false;
+  // después de confirmar preñez, verificar celo reciente
+  if (recentHeatInfo.value) {
+    recentHeatWarning.value = true;
+  } else {
+    closeForm();
+    showForm.value = true;
+  }
+};
+
+const confirmRecentHeatOverride = () => {
+  recentHeatWarning.value = false;
   closeForm();
   showForm.value = true;
 };
@@ -177,13 +264,27 @@ const closeForm = () => {
   const d = new Date();
   form.value = {
     idUser: null,
-    heatDateInit: d.toISOString().substring(0, 10),
+    heatDateInit: localDateStr(d),
     heatTimeInit: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
     heatDateEnd: null,
     heatTimeEnd: null,
     comments: ""
   };
 };
+
+/* ------------------ Cálculo automático fecha/hora fin (+24h) ------------------ */
+const calcEnd = () => {
+  if (!form.value.heatDateInit || !form.value.heatTimeInit) return;
+  const [year, month, day] = form.value.heatDateInit.split('-').map(Number);
+  const [h, m] = form.value.heatTimeInit.split(':').map(Number);
+  // Construir en tiempo local para evitar el desfase UTC
+  const start = new Date(year, month - 1, day, h, m, 0, 0);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  form.value.heatDateEnd = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+  form.value.heatTimeEnd = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+};
+
+watch(() => [form.value.heatDateInit, form.value.heatTimeInit], calcEnd);
 
 watch(page, loadHistory);
 
@@ -216,7 +317,8 @@ const headers = [
           Control de Celos: {{ bovine?.name }}
         </v-toolbar-title>
         <v-spacer />
-        <v-btn variant="flat" color="white" class="text-primary px-6" @click="openNewForm">
+        <v-btn variant="flat" color="white" class="text-primary px-6"
+          :loading="checkingPregnancy" @click="showForm ? closeForm() : openNewForm()">
           {{ showForm ? 'Cerrar Formulario' : 'Nuevo Registro' }}
         </v-btn>
       </v-toolbar>
@@ -252,7 +354,8 @@ const headers = [
                       label="Fecha Inicio"
                       variant="outlined"
                       density="comfortable"
-                      :rules="[rules.required]"
+                      :max="localDateStr()"
+                      :rules="[rules.required, (v: any) => !v || v <= localDateStr() || 'No se permiten fechas futuras']"
                     />
                   </v-col>
                   <v-col cols="12" md="2">
@@ -270,22 +373,26 @@ const headers = [
                     <v-text-field
                       v-model="form.heatDateEnd"
                       type="date"
-                      label="Fecha Fin (opcional)"
+                      label="Fecha Fin"
+                      hint="Calculado +24 hrs"
+                      persistent-hint
                       variant="outlined"
                       density="comfortable"
-                      clearable
-                      :rules="[rules.dateEndRequired]"
+                      readonly
+                      bg-color="grey-lighten-4"
                     />
                   </v-col>
                   <v-col cols="12" md="2">
                     <v-text-field
                       v-model="form.heatTimeEnd"
                       type="time"
-                      label="Hora Fin (opcional)"
+                      label="Hora Fin"
+                      hint="Calculado +24 hrs"
+                      persistent-hint
                       variant="outlined"
                       density="comfortable"
-                      clearable
-                      :rules="[rules.timeEndRequired]"
+                      readonly
+                      bg-color="grey-lighten-4"
                     />
                   </v-col>
 
@@ -341,6 +448,62 @@ const headers = [
           </v-col>
         </v-row>
       </v-container>
+    </v-card>
+  </v-dialog>
+
+  <!-- Advertencia preñez activa -->
+  <v-dialog v-model="activePregnancyWarning" max-width="480" persistent>
+    <v-card class="rounded-xl">
+      <v-card-title class="pa-4 bg-orange-darken-2 text-white d-flex align-center">
+        <v-icon class="mr-2">ph-warning</v-icon> Preñez activa detectada
+      </v-card-title>
+      <v-card-text class="pa-5">
+        <p class="text-body-2 mb-3">
+          Este bovino tiene una preñez activa registrada:
+        </p>
+        <v-sheet color="orange-lighten-5" rounded="lg" class="pa-3 text-body-2" v-if="activePregnancyInfo">
+          <div><span class="font-weight-bold">Fecha preñez:</span> {{ new Date(activePregnancyInfo.dateInit).toLocaleDateString('es-MX') }}</div>
+          <div><span class="font-weight-bold">Probable parto:</span> {{ new Date(activePregnancyInfo.dateEnd).toLocaleDateString('es-MX') }}</div>
+        </v-sheet>
+        <p class="text-body-2 mt-3 text-orange-darken-3 font-weight-medium">
+          Registrar un nuevo celo implica que la preñez actual ya no está vigente. ¿Deseas continuar?
+        </p>
+      </v-card-text>
+      <v-card-actions class="pa-4">
+        <v-spacer />
+        <v-btn variant="text" @click="activePregnancyWarning = false">Cancelar</v-btn>
+        <v-btn color="orange-darken-2" variant="flat" class="px-6" @click="confirmHeatOverride">
+          Sí, registrar celo
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Advertencia celo reciente -->
+  <v-dialog v-model="recentHeatWarning" max-width="480" persistent>
+    <v-card class="rounded-xl">
+      <v-card-title class="pa-4 bg-pink-darken-2 text-white d-flex align-center">
+        <v-icon class="mr-2">ph-thermometer-hot</v-icon> Celo reciente detectado
+      </v-card-title>
+      <v-card-text class="pa-5">
+        <p class="text-body-2 mb-3">
+          Ya existe un celo registrado hace menos de <strong>{{ HEAT_MIN_DAYS }} días</strong>:
+        </p>
+        <v-sheet color="pink-lighten-5" rounded="lg" class="pa-3 text-body-2" v-if="recentHeatInfo">
+          <div><span class="font-weight-bold">Fecha inicio:</span> {{ new Date(recentHeatInfo.heatDateInit).toLocaleDateString('es-MX') }}</div>
+          <div v-if="recentHeatInfo.heatDateEnd"><span class="font-weight-bold">Fecha fin:</span> {{ new Date(recentHeatInfo.heatDateEnd).toLocaleDateString('es-MX') }}</div>
+        </v-sheet>
+        <p class="text-body-2 mt-3 text-pink-darken-2 font-weight-medium">
+          El ciclo estral bovino es de 18–24 días. ¿Deseas registrar el celo de todas formas?
+        </p>
+      </v-card-text>
+      <v-card-actions class="pa-4">
+        <v-spacer />
+        <v-btn variant="text" @click="recentHeatWarning = false">Cancelar</v-btn>
+        <v-btn color="pink-darken-2" variant="flat" class="px-6" @click="confirmRecentHeatOverride">
+          Sí, registrar celo
+        </v-btn>
+      </v-card-actions>
     </v-card>
   </v-dialog>
 

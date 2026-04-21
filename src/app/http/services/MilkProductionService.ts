@@ -10,11 +10,11 @@ export default class MilkProductionService {
     });
   }
 
-  async createLog(payload: { bovineId: string; amount: number; registerDate: string }) {
+  async createLog(payload: { bovineId: string; amount: number; registerDate: string; userId: string }) {
     return http.post(`${this.basePath}`, payload);
   }
 
-  async updateLog(id: string, payload: { amount: number; registerDate: string }) {
+  async updateLog(id: string, payload: { amount: number; registerDate: string; userId: string }) {
     return http.patch(`${this.basePath}/${id}`, payload);
   }
 

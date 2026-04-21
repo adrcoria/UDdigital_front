@@ -86,13 +86,18 @@ const getItems = async () => {
      * Para livestock-owner: resBody.data es [ { firstName, lastName, ... } ]
      * Para otros: resBody.data suele ser { data: [], total: X }
      */
+    const sortByMonths = (arr: any[]) =>
+      props.catalog === "bovine-type"
+        ? [...arr].sort((a, b) => (a.months ?? 0) - (b.months ?? 0))
+        : arr;
+
     if (resBody.data && resBody.data.data) {
       // Caso paginado estándar
-      tableData.value = resBody.data.data;
+      tableData.value = sortByMonths(resBody.data.data);
       config.value.noOfItems = resBody.data.total || 0;
     } else if (Array.isArray(resBody.data)) {
       // Caso livestock-owner (Array directo en data)
-      tableData.value = resBody.data;
+      tableData.value = sortByMonths(resBody.data);
       config.value.noOfItems = resBody.data.length;
     } else {
       tableData.value = [];

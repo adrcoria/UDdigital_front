@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch } from "vue";
 import { batchService, batchBovineService, milkProductionService } from "@/app/http/httpServiceProvider";
+import { localDateStr } from "@/app/utils/date";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 import Table from "@/app/common/components/Table.vue";
 import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
@@ -11,6 +12,11 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits(["update:modelValue", "refresh"]);
+
+const sessionUser = (() => {
+  try { return JSON.parse(sessionStorage.getItem("user") || localStorage.getItem("user") || "{}"); }
+  catch { return {}; }
+})();
 
 /* ------------------ Estado General ------------------ */
 const loading = ref(false);
@@ -68,7 +74,7 @@ const toggleMilkHistory = async (bovineId: string) => {
     expandedRows.value.push(bovineId);
     historyPages.value[bovineId] = 1;
     if (!milkDates.value[bovineId]) {
-      milkDates.value[bovineId] = new Date().toISOString().substring(0, 10);
+      milkDates.value[bovineId] = localDateStr();
     }
     await loadMilkHistory(bovineId);
   }
@@ -95,6 +101,14 @@ const saveMilk = async (bovineId: string) => {
     milkErrors.value[bovineId] = "Ingresa una cantidad válida antes de guardar";
     return;
   }
+  const duplicate = (milkHistory.value[bovineId] || []).find((log: any) => {
+    const logDate = new Date(log.registerDate || log.createdAt).toLocaleDateString('en-CA');
+    return logDate === date;
+  });
+  if (duplicate) {
+    milkErrors.value[bovineId] = "Ya existe un registro de producción para esta fecha";
+    return;
+  }
   milkErrors.value[bovineId] = "";
 
   try {
@@ -103,6 +117,7 @@ const saveMilk = async (bovineId: string) => {
       bovineId,
       amount,
       registerDate: date ? new Date(date).toISOString() : new Date().toISOString(),
+      userId: sessionUser?.id,
     });
     showSuccessAlert("Producción registrada");
     newAmounts.value[bovineId] = null;
@@ -131,12 +146,22 @@ const saveEdit = async (bovineId: string) => {
   const amount = editAmount.value[bovineId];
   const date = editDate.value[bovineId];
   if (!amount || amount <= 0) return;
+  const duplicate = (milkHistory.value[bovineId] || []).find((log: any) => {
+    if (log.id === logId) return false;
+    const logDate = new Date(log.registerDate || log.createdAt).toLocaleDateString('en-CA');
+    return logDate === date;
+  });
+  if (duplicate) {
+    showErrorAlert("Ya existe un registro de producción para esta fecha");
+    return;
+  }
 
   try {
     savingEdit.value[bovineId] = true;
     await milkProductionService.updateLog(logId, {
       amount,
       registerDate: date ? new Date(date).toISOString() : new Date().toISOString(),
+      userId: sessionUser?.id,
     });
     showSuccessAlert("Registro actualizado");
     editingLog.value[bovineId] = null;

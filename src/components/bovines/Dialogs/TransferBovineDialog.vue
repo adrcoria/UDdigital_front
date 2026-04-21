@@ -1,7 +1,16 @@
 <script lang="ts" setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { transferLogService, companyService } from "@/app/http/httpServiceProvider";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
+
+const sessionUser = (() => {
+  try { return JSON.parse(sessionStorage.getItem("user") || localStorage.getItem("user") || "{}"); }
+  catch { return {}; }
+})();
+const originCompany = computed(() => sessionUser?.company?.name
+  ? `${sessionUser.company.name}${sessionUser.company.code ? ` (${sessionUser.company.code})` : ''}`
+  : 'Sin empresa en sesión'
+);
 
 const props = defineProps<{
   modelValue: boolean;
@@ -24,7 +33,9 @@ const loadCompanies = async () => {
   try {
     loading.value = true;
     const res = await companyService.getCompanies();
-    companies.value = (res.data?.data || []).map((c: any) => ({
+    companies.value = (res.data?.data || [])
+      .filter((c: any) => c.id !== sessionUser?.company?.id)
+      .map((c: any) => ({
       title: `${c.name} (${c.code})`,
       value: c.id,
     }));
@@ -79,6 +90,17 @@ onMounted(loadCompanies);
         </div>
 
         <v-form v-else ref="formRef" @submit.prevent="handleSave">
+          <v-text-field
+            :model-value="originCompany"
+            label="Rancho origen"
+            variant="outlined"
+            density="comfortable"
+            prepend-inner-icon="ph-house"
+            readonly
+            bg-color="grey-lighten-4"
+            class="mb-4"
+          />
+
           <v-select
             v-model="form.idCompanyDestiny"
             :items="companies"

@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { ref, computed, watch, nextTick } from "vue";
-import { pregnancyService, bovineService, liveStockService, usuariosService } from "@/app/http/httpServiceProvider";
+import { pregnancyService, bovineService, liveStockService, usuariosService, heatService, birthService } from "@/app/http/httpServiceProvider";
+import { localDateStr } from "@/app/utils/date";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 import Table from "@/app/common/components/Table.vue";
 import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
@@ -55,8 +56,8 @@ const form = ref(emptyForm());
 watch(() => form.value.dateInit, (newDate) => {
   if (newDate) {
     const date = new Date(newDate);
-    date.setDate(date.getDate() + 290);
-    form.value.dateEnd = date.toISOString().substring(0, 10);
+    date.setDate(date.getDate() + 283);
+    form.value.dateEnd = localDateStr(date);
   }
 }, { immediate: true });
 
@@ -99,17 +100,22 @@ watch(() => form.value.idPregnancyType, () => {
 });
 
 /* ------------------ Historial ------------------ */
+const allHeats = ref<any[]>([]);
+const allBirths = ref<any[]>([]);
+
 const loadHistory = async () => {
   if (!props.bovine?.id) return;
   try {
     loading.value = true;
-    const res = await pregnancyService.getHistory({
-      idBovine: props.bovine.id,
-      page: page.value,
-      limit: config.value.itemsPerPage
-    });
-    history.value = res.data?.data?.data || res.data?.data || [];
-    config.value.noOfItems = res.data?.data?.total || history.value.length;
+    const [resPreg, resHeats, resBirths] = await Promise.all([
+      pregnancyService.getHistory({ idBovine: props.bovine.id, page: page.value, limit: config.value.itemsPerPage }),
+      heatService.getHistory({ idBovine: props.bovine.id, page: 1, limit: 1000 }),
+      birthService.getHistory({ idBovine: props.bovine.id, page: 1, limit: 1000 }),
+    ]);
+    history.value = resPreg.data?.data?.data || resPreg.data?.data || [];
+    config.value.noOfItems = resPreg.data?.data?.total || history.value.length;
+    allHeats.value = resHeats.data?.data?.data || resHeats.data?.data || [];
+    allBirths.value = resBirths.data?.data?.data || resBirths.data?.data || [];
   } catch {
     showErrorAlert("No se pudo cargar el historial");
   } finally {
@@ -117,10 +123,38 @@ const loadHistory = async () => {
   }
 };
 
+const getPregnancyStatus = (p: any): { label: string; color: string } | null => {
+  const pregStart = new Date(p.dateInit);
+  const pregEnd = new Date(p.dateEnd);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  // Terminó en parto
+  const hasBirth = allBirths.value.some((b: any) => new Date(b.birthDate) >= pregStart);
+  if (hasBirth) return { label: 'Finalizó en parto', color: 'success' };
+
+  // Desestimada por celo posterior
+  const hasHeat = allHeats.value.some((h: any) => new Date(h.heatDateInit) >= pregStart);
+  if (hasHeat) return { label: 'Desestimada por celo', color: 'orange-darken-2' };
+
+  // Vencida sin resolución
+  if (pregEnd < today) return { label: 'Vencida sin resolución', color: 'error' };
+
+  // Activa
+  return { label: 'Activa', color: 'teal' };
+};
+
 /* ------------------ Guardar ------------------ */
 const savePregnancy = async () => {
   const { valid } = await formRef.value.validate();
   if (!valid) return;
+
+  // Evitar duplicado en la misma fecha
+  const duplicate = history.value.find((p: any) => {
+    if (isEditing.value && p.id === editingId.value) return false;
+    return p.dateInit?.substring(0, 10) === form.value.dateInit;
+  });
+  if (duplicate) return showErrorAlert("Ya existe un registro de preñez en esa fecha.");
+
   try {
     saving.value = true;
 
@@ -266,7 +300,7 @@ const toggleRow = (id: string) => {
 
 const headers = [
   { title: "" }, { title: "Fecha Preñez" }, { title: "Tipo" }, { title: "Origen" },
-  { title: "Responsable" }, { title: "F. Probable Parto" },
+  { title: "Responsable" }, { title: "F. Probable Parto" }, { title: "Estado" },
   { title: "Acciones", align: "center" }
 ];
 </script>
@@ -368,8 +402,8 @@ const headers = [
                             variant="outlined" density="comfortable" :rules="[required]" />
                         </v-col>
                         <v-col cols="12" md="2">
-                          <v-text-field v-model="form.externalBovine.earTag" label="Arete"
-                            variant="outlined" density="comfortable" :rules="[required]" />
+                          <v-text-field v-model="form.externalBovine.earTag" label="Arete (opcional)"
+                            variant="outlined" density="comfortable" />
                         </v-col>
                         <v-col cols="12" md="2">
                           <v-text-field v-model="form.externalBovine.ranch" label="Rancho"
@@ -405,8 +439,8 @@ const headers = [
                             variant="outlined" density="comfortable" :rules="[required]" />
                         </v-col>
                         <v-col cols="12" md="2">
-                          <v-text-field v-model="form.externalFemaleBovine.earTag" label="Arete"
-                            variant="outlined" density="comfortable" :rules="[required]" />
+                          <v-text-field v-model="form.externalFemaleBovine.earTag" label="Arete (opcional)"
+                            variant="outlined" density="comfortable" />
                         </v-col>
                         <v-col cols="12" md="2">
                           <v-text-field v-model="form.externalFemaleBovine.ranch" label="Rancho"
@@ -466,6 +500,12 @@ const headers = [
                       <td class="text-primary font-weight-black">
                         {{ item.dateEnd ? new Date(item.dateEnd).toLocaleDateString() : 'Pendiente' }}
                       </td>
+                      <td>
+                        <v-chip v-if="getPregnancyStatus(item)" size="x-small" variant="tonal"
+                          :color="getPregnancyStatus(item)!.color">
+                          {{ getPregnancyStatus(item)!.label }}
+                        </v-chip>
+                      </td>
                       <td class="text-center">
                         <v-btn icon="ph-pencil" size="small" variant="text" color="primary" @click="openEdit(item)" />
                         <v-btn icon="ph-trash" size="small" variant="text" color="error" @click="confirmDelete(item)" />
@@ -473,7 +513,7 @@ const headers = [
                     </tr>
                     <!-- Fila expandible -->
                     <tr v-if="expandedRows.has(item.id)" class="bg-grey-lighten-5">
-                      <td colspan="7" class="pa-4">
+                      <td colspan="8" class="pa-4">
                         <v-row dense>
                           <!-- Semental / Padre -->
                           <v-col cols="12" md="3">

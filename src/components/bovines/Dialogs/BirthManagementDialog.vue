@@ -1,6 +1,7 @@
 <script lang="ts" setup>
-import { ref, watch } from "vue";
-import { birthService, bovineService, usuariosService } from "@/app/http/httpServiceProvider";
+import { ref, watch, computed } from "vue";
+import { birthService, bovineService, pregnancyService, usuariosService } from "@/app/http/httpServiceProvider";
+import { localDateStr } from "@/app/utils/date";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 import Table from "@/app/common/components/Table.vue";
 import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
@@ -40,7 +41,7 @@ const bovineSonOptions = ref<any[]>([]); // raw bovine objects
 const form = ref({
   idUser: null as string | null,
   idBovineSon: null as string | null,
-  birthDate: new Date().toISOString().substring(0, 10),
+  birthDate: localDateStr(),
   comments: ""
 });
 
@@ -103,6 +104,15 @@ const loadHistory = async () => {
 
 /* ------------------ Guardar ------------------ */
 const saveBirth = async () => {
+  // Evitar registrar la misma cría más de una vez
+  if (form.value.idBovineSon) {
+    const duplicate = history.value.find((b: any) => {
+      if (isEditing.value && b.id === editingId.value) return false;
+      return b.idBovineSon === form.value.idBovineSon;
+    });
+    if (duplicate) return showErrorAlert("Esta cría ya tiene un parto registrado.");
+  }
+
   try {
     saving.value = true;
 
@@ -183,27 +193,41 @@ const closeForm = () => {
   form.value = {
     idUser: null,
     idBovineSon: null,
-    birthDate: new Date().toISOString().substring(0, 10),
+    birthDate: localDateStr(),
     comments: ""
   };
 };
 
 const motherRaceAssignments = ref<any[]>([]);
+const lastPregnancy = ref<any>(null);
 
 const loadMotherRaces = async () => {
-  // Si el prop ya trae raceAssignments, no consumir el endpoint
-  if (props.bovine?.raceAssignments?.length) {
-    motherRaceAssignments.value = props.bovine.raceAssignments;
-    return;
-  }
   if (!props.bovine?.id) return;
   try {
-    const res = await bovineService.getBovineById(props.bovine.id);
-    motherRaceAssignments.value = res.data?.data?.raceAssignments || [];
+    const [resBovine, resPregnancy] = await Promise.all([
+      props.bovine?.raceAssignments?.length ? Promise.resolve(null) : bovineService.getBovineById(props.bovine.id),
+      pregnancyService.getHistory({ idBovine: props.bovine.id, page: 1, limit: 1 })
+    ]);
+
+    motherRaceAssignments.value = props.bovine?.raceAssignments?.length
+      ? props.bovine.raceAssignments
+      : (resBovine?.data?.data?.raceAssignments || []);
+
+    const records: any[] = resPregnancy.data?.data?.data || resPregnancy.data?.data || [];
+    lastPregnancy.value = records.length ? records[0] : null;
   } catch {
-    motherRaceAssignments.value = [];
+    motherRaceAssignments.value = props.bovine?.raceAssignments || [];
+    lastPregnancy.value = null;
   }
 };
+
+const lastPregnancyIsMontaNatural = computed(() =>
+  lastPregnancy.value?.pregnancyType?.name?.toUpperCase().includes('MONTA NATURAL') ?? false
+);
+
+const lastPregnancyFatherId = computed(() =>
+  lastPregnancyIsMontaNatural.value ? (lastPregnancy.value?.maleBovine?.id ?? null) : null
+);
 
 const onBovineCreated = async (newId: string | null) => {
   await loadBovineSons();
@@ -263,6 +287,46 @@ const headers = [
                 <div class="text-subtitle-1 font-weight-bold mb-4 text-brown-darken-2">
                   {{ isEditing ? 'Editar registro de parto' : 'Nuevo registro de parto' }}
                 </div>
+
+                <!-- Referencia: última preñez -->
+                <v-alert v-if="lastPregnancy" density="compact" variant="tonal"
+                  :color="lastPregnancyIsMontaNatural ? 'blue-darken-1' : 'teal'"
+                  class="mb-4">
+                  <div class="d-flex flex-wrap align-center" style="gap: 12px;">
+                    <div>
+                      <div class="text-caption text-grey font-weight-bold">ÚLTIMA PREÑEZ</div>
+                      <div class="text-body-2 font-weight-bold">
+                        {{ lastPregnancy.dateInit ? new Date(lastPregnancy.dateInit).toLocaleDateString('es-MX') : '---' }}
+                      </div>
+                    </div>
+                    <v-divider vertical />
+                    <div>
+                      <div class="text-caption text-grey font-weight-bold">TIPO</div>
+                      <div class="d-flex align-center" style="gap: 6px;">
+                        <span class="text-body-2 font-weight-bold">{{ lastPregnancy.pregnancyType?.name || '---' }}</span>
+                        <v-chip v-if="lastPregnancyIsMontaNatural" size="x-small" color="blue-darken-1">Monta Natural</v-chip>
+                      </div>
+                    </div>
+                    <v-divider vertical />
+                    <div>
+                      <div class="text-caption text-grey font-weight-bold">SEMENTAL</div>
+                      <template v-if="lastPregnancy.maleBovine">
+                        <div class="text-body-2 font-weight-bold">{{ lastPregnancy.maleBovine.name }}</div>
+                        <div class="text-caption text-grey">Arete: {{ lastPregnancy.maleBovine.internalEarTag }}</div>
+                      </template>
+                      <template v-else-if="lastPregnancy.externalBovine?.name">
+                        <div class="text-body-2 font-weight-bold">{{ lastPregnancy.externalBovine.name }} <span class="text-caption text-grey">(externo)</span></div>
+                        <div class="text-caption text-grey">{{ lastPregnancy.externalBovine.earTag || '' }}</div>
+                      </template>
+                      <span v-else class="text-body-2 text-grey">Sin registro</span>
+                    </div>
+                    <v-chip v-if="lastPregnancyIsMontaNatural && lastPregnancy.maleBovine"
+                      size="x-small" color="blue-darken-1" variant="flat" class="ml-auto">
+                      ID padre autoasignado a la cría
+                    </v-chip>
+                  </div>
+                </v-alert>
+
                 <v-row dense>
                   <v-col cols="12" md="3">
                     <v-select
@@ -373,7 +437,7 @@ const headers = [
     v-model="createBovineDialog"
     :item="null"
     :isCria="true"
-    :initialValues="{ motherId: bovine?.id, birthDate: form.birthDate, raceAssignments: motherRaceAssignments }"
+    :initialValues="{ motherId: bovine?.id, birthDate: form.birthDate, raceAssignments: motherRaceAssignments, fatherId: lastPregnancyFatherId }"
     @refresh="onBovineCreated"
   />
 </template>

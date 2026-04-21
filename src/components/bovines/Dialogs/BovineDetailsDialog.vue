@@ -2,6 +2,24 @@
 import { ref, watch, computed } from "vue";
 import { bovineService } from "@/app/http/httpServiceProvider";
 
+const sonDetails = ref<Record<string, any>>({});
+const loadingSons = ref(false);
+
+const loadBirthSons = async (births: any[]) => {
+  const pending = births.filter(b => b.idBovineSon && !sonDetails.value[b.idBovineSon]);
+  if (!pending.length) return;
+  loadingSons.value = true;
+  await Promise.allSettled(
+    pending.map(async (b) => {
+      try {
+        const res = await bovineService.getBovineById(b.idBovineSon);
+        sonDetails.value = { ...sonDetails.value, [b.idBovineSon]: res.data?.data };
+      } catch { /* ignorar errores individuales */ }
+    })
+  );
+  loadingSons.value = false;
+};
+
 const props = defineProps<{ modelValue: boolean; item: any | null }>();
 const emit = defineEmits(["update:modelValue"]);
 
@@ -44,8 +62,14 @@ const formatDate = (val: string | null) => {
 
 watch(() => props.modelValue, (val) => {
   dialog.value = val;
-  if (val) { activeTab.value = "info"; loadDetails(); }
+  if (val) { activeTab.value = "info"; sonDetails.value = {}; loadDetails(); }
 }, { immediate: true });
+
+watch(activeTab, (tab) => {
+  if (tab === "parto" && details.value?.births?.length) {
+    loadBirthSons(details.value.births);
+  }
+});
 
 watch(dialog, (val) => emit("update:modelValue", val));
 </script>
@@ -139,6 +163,10 @@ watch(dialog, (val) => emit("update:modelValue", val));
           <v-tab value="pesos">
             <v-icon class="mr-1" size="16">ph-scales</v-icon>Pesos
             <v-badge v-if="details.weightLogs?.length" :content="details.weightLogs.length" color="secondary" inline class="ml-1" />
+          </v-tab>
+          <v-tab value="vacunacion">
+            <v-icon class="mr-1" size="16">ph-syringe</v-icon>Vacunación
+            <v-badge v-if="details.vaccines?.length" :content="details.vaccines.length" color="deep-purple" inline class="ml-1" />
           </v-tab>
         </v-tabs>
 
@@ -316,17 +344,44 @@ watch(dialog, (val) => emit("update:modelValue", val));
                   <thead>
                     <tr>
                       <th>Fecha de Parto</th>
+                      <th>Cría</th>
+                      <th>Arete Interno</th>
+                      <th>Etapa de Vida</th>
                       <th>Comentarios</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="b in details.births" :key="b.id">
-                      <td class="font-weight-bold">{{ formatDate(b.birthDate) }}</td>
-                      <td class="text-caption text-grey-darken-1">{{ b.comments || '---' }}</td>
+                    <tr v-if="loadingSons">
+                      <td colspan="5" class="text-center py-6">
+                        <v-progress-circular indeterminate size="24" color="primary" class="mr-2" />
+                        Cargando crías...
+                      </td>
                     </tr>
-                    <tr v-if="!details.births?.length">
-                      <td colspan="2" class="text-center py-8 text-grey">Sin registros de parto</td>
-                    </tr>
+                    <template v-else>
+                      <tr v-for="b in details.births" :key="b.id">
+                        <td class="font-weight-bold">{{ formatDate(b.birthDate) }}</td>
+                        <td>
+                          <span v-if="sonDetails[b.idBovineSon]" class="font-weight-medium">
+                            {{ sonDetails[b.idBovineSon].name }}
+                          </span>
+                          <v-progress-circular v-else-if="b.idBovineSon" indeterminate size="14" color="grey" />
+                          <span v-else class="text-grey">---</span>
+                        </td>
+                        <td class="text-caption">
+                          {{ sonDetails[b.idBovineSon]?.internalEarTag || '---' }}
+                        </td>
+                        <td>
+                          <v-chip v-if="sonDetails[b.idBovineSon]?.bovineType" size="x-small" color="secondary" variant="tonal">
+                            {{ sonDetails[b.idBovineSon].bovineType.name }}
+                          </v-chip>
+                          <span v-else class="text-grey text-caption">---</span>
+                        </td>
+                        <td class="text-caption text-grey-darken-1">{{ b.comments || '---' }}</td>
+                      </tr>
+                      <tr v-if="!details.births?.length">
+                        <td colspan="5" class="text-center py-8 text-grey">Sin registros de parto</td>
+                      </tr>
+                    </template>
                   </tbody>
                 </v-table>
               </div>
@@ -349,6 +404,42 @@ watch(dialog, (val) => emit("update:modelValue", val));
                     </tr>
                     <tr v-if="!details.weightLogs?.length">
                       <td colspan="2" class="text-center py-8 text-grey">Sin registros de peso</td>
+                    </tr>
+                  </tbody>
+                </v-table>
+              </div>
+            </v-window-item>
+
+            <!-- Tab Vacunación -->
+            <v-window-item value="vacunacion">
+              <div class="pa-4">
+                <v-table density="compact" class="rounded-lg border">
+                  <thead>
+                    <tr>
+                      <th>Producto / Vacuna</th>
+                      <th>Lote</th>
+                      <th>Ranchero</th>
+                      <th>Fecha de Aplicación</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="v in details.vaccines" :key="v.id">
+                      <td>
+                        <div class="d-flex align-center" style="gap: 6px;">
+                          <v-icon size="16" color="deep-purple">ph-syringe</v-icon>
+                          <span class="font-weight-bold">{{ v.product?.name || '---' }}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <v-chip size="x-small" color="deep-purple" variant="tonal" label>
+                          {{ v.batch?.name || '---' }}
+                        </v-chip>
+                      </td>
+                      <td class="text-body-2">{{ v.rancher?.name || '---' }}</td>
+                      <td class="text-caption text-grey-darken-1">{{ formatDate(v.createdAt) }}</td>
+                    </tr>
+                    <tr v-if="!details.vaccines?.length">
+                      <td colspan="4" class="text-center py-8 text-grey">Sin registros de vacunación</td>
                     </tr>
                   </tbody>
                 </v-table>

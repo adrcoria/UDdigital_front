@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import TopFilters from "./TopFilters.vue";
 import Listing from "./Listing.vue";
+import { localDateStr } from "@/app/utils/date";
 
 const filters = ref({
   reportType: null,
@@ -9,8 +10,8 @@ const filters = ref({
   accountId: null,
   categoryId: null,
   conceptId: null,
-  dateFrom: new Date().toISOString().split('T')[0],
-  dateTo: new Date().toISOString().split('T')[0],
+  dateFrom: localDateStr(),
+  dateTo: localDateStr(),
 });
 </script>
 

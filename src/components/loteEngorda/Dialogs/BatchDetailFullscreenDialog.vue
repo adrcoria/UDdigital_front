@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch } from "vue";
 import { batchService, batchBovineService, weightService } from "@/app/http/httpServiceProvider";
+import { localDateStr } from "@/app/utils/date";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 import Table from "@/app/common/components/Table.vue";
 import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
@@ -61,7 +62,7 @@ const toggleWeightHistory = async (bovineId: string) => {
     expandedRows.value.push(bovineId);
     historyPages.value[bovineId] = 1; // Reset a página 1 al abrir
     if (!weightDates.value[bovineId]) {
-      weightDates.value[bovineId] = new Date().toISOString().substr(0, 10);
+      weightDates.value[bovineId] = localDateStr();
     }
     await loadWeightHistory(bovineId);
   }
@@ -89,6 +90,14 @@ const saveWeight = async (bovineId: string) => {
   const date = weightDates.value[bovineId];
   if (!weight || weight <= 0) {
     weightErrors.value[bovineId] = "Ingresa un peso válido antes de guardar";
+    return;
+  }
+  const duplicate = (weightHistory.value[bovineId] || []).find((log: any) => {
+    const logDate = new Date(log.registerDate || log.createdAt).toLocaleDateString('en-CA');
+    return logDate === date;
+  });
+  if (duplicate) {
+    weightErrors.value[bovineId] = "Ya existe un registro de peso para esta fecha";
     return;
   }
   weightErrors.value[bovineId] = "";

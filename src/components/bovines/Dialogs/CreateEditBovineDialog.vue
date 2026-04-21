@@ -2,6 +2,7 @@
 import { ref, watch, computed, nextTick } from "vue";
 import { bovineService, liveStockService, parameterService } from "@/app/http/httpServiceProvider";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
+import { localDateStr } from "@/app/utils/date";
 
 const props = defineProps<{ modelValue: boolean; item: any | null; initialValues?: Record<string, any>; isCria?: boolean }>();
 const emit = defineEmits(["update:modelValue", "refresh"]);
@@ -12,7 +13,7 @@ const loading = ref(false);
 const loadingCatalogs = ref(false);
 const formRef = ref(null);
 const isEditing = ref(false); // Flag para el Overlay de preparación
-const today = computed(() => new Date().toISOString().split('T')[0]);
+const today = computed(() => localDateStr());
 
 const factorVenta = ref(0);
 
@@ -133,14 +134,7 @@ const isReproductiveAge = computed(() => {
     return selectedType ? selectedType.months >= 37 : false;
 });
 
-const filteredPurposes = computed(() => {
-    if (!form.value.sexId) return [];
-    const selectedSex = lists.value.sex.find((s: any) => s.id === form.value.sexId);
-    if (!selectedSex) return [];
-    const sexName = selectedSex.name.toUpperCase();
-    if (sexName === 'MACHO') return lists.value.purposes.filter((p: any) => p.name.toUpperCase() === 'CARNE');
-    return lists.value.purposes;
-});
+const filteredPurposes = computed(() => lists.value.purposes);
 
 const isCompra = computed(() => {
     if (!form.value.bovineOriginId || !lists.value.origins.length) return false;
@@ -165,13 +159,7 @@ const rules = {
     },
     exact12: (v: any) => (v && v.length === 12) || "Debe tener exactamente 12 dígitos",
     only12Digits: (v: any) => /^\d{12}$/.test(v) || "Deben ser exactamente 12 números",
-    purposeRestriction: (v: any) => {
-        if (!v || !form.value.sexId) return true;
-        const selectedSex = lists.value.sex.find((s: any) => s.id === form.value.sexId)?.name.toUpperCase();
-        const selectedPurpose = lists.value.purposes.find((p: any) => p.id === v)?.name.toUpperCase();
-        if (selectedSex === 'HEMBRA' && selectedPurpose === 'CARNE') return "Las hembras no pueden ser solo CARNE";
-        return true;
-    }
+    purposeRestriction: () => true
 };
 
 /* ------------------ Logic: Watchers ------------------ */
@@ -322,7 +310,37 @@ watch(() => props.modelValue, async (val) => {
                 resetForm();
                 if (props.initialValues) {
                     Object.assign(form.value, props.initialValues);
-                    if (props.initialValues.raceAssignments?.length) {
+
+                    // Precargar razas desde padre y madre si no vienen explícitas
+                    if (!props.initialValues.raceAssignments?.length && (props.initialValues.fatherId || props.initialValues.motherId)) {
+                        const fetches = await Promise.allSettled([
+                            props.initialValues.fatherId ? bovineService.getBovineById(props.initialValues.fatherId) : Promise.resolve(null),
+                            props.initialValues.motherId ? bovineService.getBovineById(props.initialValues.motherId) : Promise.resolve(null),
+                        ]);
+
+                        const fatherRaces: any[] = fetches[0].status === 'fulfilled' && fetches[0].value
+                            ? (fetches[0].value.data?.data?.raceAssignments || []) : [];
+                        const motherRaces: any[] = fetches[1].status === 'fulfilled' && fetches[1].value
+                            ? (fetches[1].value.data?.data?.raceAssignments || []) : [];
+
+                        // Cada progenitor aporta 50%; ese 50% se divide equitativamente entre sus razas
+                        const combined: any[] = [];
+                        const fatherShare = fatherRaces.length ? 50 / fatherRaces.length : 0;
+                        const motherShare = motherRaces.length ? 50 / motherRaces.length : 0;
+
+                        fatherRaces.forEach((r: any) => combined.push({
+                            raceId: r.bovineRace?.id || r.raceId,
+                            percentage: Math.round(fatherShare),
+                            order: combined.length + 1
+                        }));
+                        motherRaces.forEach((r: any) => combined.push({
+                            raceId: r.bovineRace?.id || r.raceId,
+                            percentage: Math.round(motherShare),
+                            order: combined.length + 1
+                        }));
+
+                        if (combined.length) selectedRaces.value = combined;
+                    } else if (props.initialValues.raceAssignments?.length) {
                         selectedRaces.value = props.initialValues.raceAssignments.map((r: any, i: number) => ({
                             raceId: r.bovineRace?.id || r.raceId,
                             percentage: Number(r.percentage),
@@ -487,7 +505,7 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                                 :disabled="!form.sexId" variant="outlined" /></v-col>
                         <v-col cols="12" md="3"><v-autocomplete label="Propósito *" v-model="form.bovinePurposeId"
                                 :items="filteredPurposes" item-title="name" item-value="id"
-                                :rules="[rules.required, rules.purposeRestriction]" :disabled="!form.sexId"
+                                :rules="[rules.required]"
                                 variant="outlined" /></v-col>
                         <v-col cols="12" md="3"><v-autocomplete label="Origen *" v-model="form.bovineOriginId"
                                 :items="lists.origins" item-title="name" item-value="id" :rules="[rules.required]"
@@ -513,7 +531,10 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                                     <v-autocomplete label="Padre" v-model="form.fatherId"
                                         :items="listMales"
                                         :item-title="(b: any) => `${b.name} (${b.internalEarTag})`"
-                                        item-value="id" variant="outlined" clearable>
+                                        item-value="id" variant="outlined"
+                                        :clearable="!props.initialValues?.fatherId"
+                                        :readonly="!!props.initialValues?.fatherId"
+                                        :bg-color="props.initialValues?.fatherId ? 'grey-lighten-4' : undefined">
                                         <template #item="{ props: p, item }">
                                             <v-list-item v-bind="p"
                                                 :title="item.raw.name"
@@ -528,8 +549,11 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                                     <v-autocomplete label="Madre" v-model="form.motherId"
                                         :items="listFemales"
                                         :item-title="(b: any) => `${b.name} (${b.internalEarTag})`"
-                                        item-value="id" variant="outlined" clearable
-                                        :disabled="isCria">
+                                        item-value="id" variant="outlined"
+                                        :clearable="!props.initialValues?.motherId"
+                                        :readonly="!!props.initialValues?.motherId"
+                                        :bg-color="props.initialValues?.motherId ? 'grey-lighten-4' : undefined"
+                                        :disabled="isCria && !props.initialValues?.motherId">
                                         <template #item="{ props: p, item }">
                                             <v-list-item v-bind="p"
                                                 :title="item.raw.name"

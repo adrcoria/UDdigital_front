@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from "vue";
+import { localDateStr } from "@/app/utils/date";
 import { 
   companyService, 
   ledgerAccountService, 
@@ -91,8 +92,8 @@ const onClear = () => {
     accountId: null,
     categoryId: null,
     conceptId: null,
-    dateFrom: new Date().toISOString().split('T')[0],
-    dateTo: new Date().toISOString().split('T')[0],
+    dateFrom: localDateStr(),
+    dateTo: localDateStr(),
   });
 };
 </script>
