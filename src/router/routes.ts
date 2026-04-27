@@ -192,6 +192,48 @@ const adminRoutes = [
 
 
 /* ======================================================
+ * PERSONAL
+ * ====================================================== */
+const personalRoutes = [
+  {
+    path: "/personal/administrar",
+    name: "PersonalAdmin",
+    component: () => import("@/views/personal/PersonalPage.vue"),
+    meta: {
+      title: "Gestión de Personal",
+      authRequired: true,
+      layout: DefaultLayout
+    }
+  },
+  {
+    path: "/personal/puestos",
+    name: "PersonalPuestos",
+    component: () => import("@/views/personal/PositionsPage.vue"),
+    meta: {
+      title: "Catálogo de Puestos",
+      authRequired: true,
+      layout: DefaultLayout
+    }
+  }
+];
+
+/* ======================================================
+ * MAQUINARIA
+ * ====================================================== */
+const maquinariaRoutes = [
+  {
+    path: "/maquinaria",
+    name: "Maquinaria",
+    component: () => import("@/views/maquinaria/MaquinariaPage.vue"),
+    meta: {
+      title: "Gestión de Maquinaria",
+      authRequired: true,
+      layout: DefaultLayout
+    }
+  }
+];
+
+/* ======================================================
  * INVENTARIOS
  * ====================================================== */
 const inventarioRoutes = [
@@ -226,5 +268,7 @@ export const routes = [
   ...configRoutes,
   ...adminRoutes,
   ...livestockRoutes,
-  ...inventarioRoutes
+  ...inventarioRoutes,
+  ...maquinariaRoutes,
+  ...personalRoutes
 ];

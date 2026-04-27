@@ -135,6 +135,37 @@ export const menuItems: MenuItemType[] = [
         roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
       },
     ]
+  },
+  {
+    label: "Maquinaria",
+    icon: "ph-truck",
+    id: "sidebarMaquinaria",
+    roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA],
+    subMenu: [
+      {
+        label: "Administrar",
+        link: "/maquinaria",
+        roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
+      }
+    ]
+  },
+  {
+    label: "Personal",
+    icon: "ph-users",
+    id: "sidebarPersonal",
+    roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA],
+    subMenu: [
+      {
+        label: "Administrar",
+        link: "/personal/administrar",
+        roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
+      },
+      {
+        label: "Puestos",
+        link: "/personal/puestos",
+        roles: [ROLES.SUPER_USER, ROLES.ADMIN]
+      }
+    ]
   }
 ];
 

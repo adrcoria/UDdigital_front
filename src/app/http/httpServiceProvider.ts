@@ -28,6 +28,10 @@ import InventoryService from "./services/InventoryService";
 import RanchersService from "./services/ranchersService";
 import TransferLogService from "./services/TransferLogService";
 import VentaGanadoService from "./services/VentaGanadoService";
+import MachineryService from "./services/MachineryService";
+import MachineryMaintenanceService from "./services/MachineryMaintenanceService";
+import PersonalService from "./services/PersonalService";
+import PositionService from "./services/PositionService";
 const heatService = new HeatService();
 const birthService = new BirthService();
 const roleService = new RoleService();
@@ -59,9 +63,17 @@ const inventoryService = new InventoryService();
 const ranchersService = new RanchersService();
 const transferLogService = new TransferLogService();
 const ventaGanadoService = new VentaGanadoService();
+const machineryService = new MachineryService();
+const machineryMaintenanceService = new MachineryMaintenanceService();
+const personalService = new PersonalService();
+const positionService = new PositionService();
 
 export {
   ventaGanadoService,
+  machineryService,
+  machineryMaintenanceService,
+  personalService,
+  positionService,
   transferLogService,
   ranchersService,
   inventoryService,
