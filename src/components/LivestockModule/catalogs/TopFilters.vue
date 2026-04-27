@@ -20,6 +20,7 @@ const catalogs = [
   { title: "Propietarios", value: "livestock-owner" },
   { title: "Razas", value: "bovine-race" },
   { title: "Causas de muerte", value: "death-cause" },
+  { title: "Subcausas de muerte", value: "death-sub-cause" },
   { title: "Tipos de preñez", value: "pregnancy-type" }
 ];
 

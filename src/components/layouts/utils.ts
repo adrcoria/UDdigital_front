@@ -129,6 +129,11 @@ export const menuItems: MenuItemType[] = [
         link: '/ganaderia/vacunacion',
         roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
       },
+      {
+        label: 'Venta de Ganado',
+        link: '/ganaderia/venta',
+        roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
+      },
     ]
   }
 ];

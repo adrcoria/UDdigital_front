@@ -25,6 +25,16 @@ const accountRoutes = [
     }
   },
   {
+    path: "/pass-change",
+    name: "AccountChangePassword",
+    component: () => import("@/views/account/ChangePassword.vue"),
+    meta: {
+      title: "Cambiar contraseña",
+      authRequired: false,
+      layout: AuthLayout
+    }
+  },
+  {
     path: "/logout",
     name: "Logout",
     component: () => import("@/views/account/Logout.vue"),
@@ -139,6 +149,16 @@ const livestockRoutes = [
     component: () => import("@/views/loteVacunacion/LoteVacunacion.vue"),
     meta: {
       title: "Módulo de Vacunación",
+      authRequired: true,
+      layout: DefaultLayout
+    }
+  },
+  {
+    path: "/ganaderia/venta",
+    name: "VentaGanado",
+    component: () => import("@/views/ventas/VentaGanadoPage.vue"),
+    meta: {
+      title: "Venta de Ganado",
       authRequired: true,
       layout: DefaultLayout
     }

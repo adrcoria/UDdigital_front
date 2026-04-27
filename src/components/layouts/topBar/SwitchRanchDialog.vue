@@ -1,23 +1,16 @@
 <script lang="ts" setup>
 import { ref, computed, watch } from "vue";
-import { useRouter } from "vue-router";
-import CryptoJS from "crypto-js";
 import { accountService, companyService } from "@/app/http/httpServiceProvider";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
-
-const SECRET_KEY = "UGDigital2025$$";
 
 const props = defineProps<{ modelValue: boolean }>();
 const emit = defineEmits(["update:modelValue"]);
 
-const router = useRouter();
 
 const loading = ref(false);
 const switching = ref(false);
 const companies = ref<any[]>([]);
-const selectedCompany = ref<string>("");
-const password = ref("");
-const showPassword = ref(false);
+const selectedCompanyId = ref<string>("");
 const formRef = ref(null);
 
 const sessionUser = (() => {
@@ -31,9 +24,8 @@ const currentCompany = computed(() =>
     : "Sin empresa"
 );
 
-const hasSavedCredentials = computed(() =>
-  !!(localStorage.getItem("mail") && localStorage.getItem("password"))
-);
+const getRefreshToken = () =>
+  localStorage.getItem("refreshToken") || sessionStorage.getItem("refreshToken") || "";
 
 const loadCompanies = async () => {
   try {
@@ -41,7 +33,7 @@ const loadCompanies = async () => {
     const res = await companyService.getCompanies();
     companies.value = (res.data?.data || [])
       .filter((c: any) => c.id !== sessionUser?.company?.id)
-      .map((c: any) => ({ title: `${c.name} (${c.code})`, value: c.code }));
+      .map((c: any) => ({ title: `${c.name} (${c.code})`, value: c.id, raw: c }));
   } catch {
     showErrorAlert("Error al cargar los ranchos");
   } finally {
@@ -53,73 +45,53 @@ const handleSwitch = async () => {
   const { valid } = await (formRef.value as any).validate();
   if (!valid) return;
 
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    showErrorAlert("Sesión expirada. Por favor inicia sesión de nuevo.");
+    return;
+  }
+
   try {
     switching.value = true;
-
-    let mail = "";
-    let pass = "";
-
-    if (hasSavedCredentials.value) {
-      mail = CryptoJS.AES.decrypt(localStorage.getItem("mail")!, SECRET_KEY).toString(CryptoJS.enc.Utf8);
-      pass = CryptoJS.AES.decrypt(localStorage.getItem("password")!, SECRET_KEY).toString(CryptoJS.enc.Utf8);
-    } else {
-      const encMail = localStorage.getItem("mail") || sessionStorage.getItem("mail");
-      mail = encMail
-        ? CryptoJS.AES.decrypt(encMail, SECRET_KEY).toString(CryptoJS.enc.Utf8)
-        : "";
-      pass = password.value;
-    }
-
-    if (!mail) {
-      showErrorAlert("No se encontraron credenciales guardadas. Por favor inicia sesión de nuevo.");
-      return;
-    }
-
-    const response = await accountService.login({
-      companyCode: selectedCompany.value,
-      mail,
-      password: pass || password.value,
-    });
-
+    const response = await accountService.switchCompany(refreshToken, selectedCompanyId.value);
     const { data } = response.data;
-    if ([200, 201].includes(response.data.statusCode)) {
-      const usedLocalStorage = !!localStorage.getItem("accessToken");
-      localStorage.clear();
-      sessionStorage.clear();
 
-      const storage = usedLocalStorage ? localStorage : sessionStorage;
-      storage.setItem("accessToken", data.accessToken);
-      storage.setItem("user", JSON.stringify(data.user));
-      storage.setItem("refreshToken", data.refreshToken);
+    const usedLocalStorage = !!localStorage.getItem("accessToken");
+    const existingUser = JSON.parse(
+      localStorage.getItem("user") || sessionStorage.getItem("user") || "null"
+    );
 
-      if (usedLocalStorage) {
-        localStorage.setItem("mail", CryptoJS.AES.encrypt(mail, SECRET_KEY).toString());
-        localStorage.setItem("password", CryptoJS.AES.encrypt(pass || password.value, SECRET_KEY).toString());
-        localStorage.setItem("companyCode", CryptoJS.AES.encrypt(selectedCompany.value, SECRET_KEY).toString());
-      }
+    const selectedCompanyData = companies.value.find(c => c.value === selectedCompanyId.value);
+    const updatedUser = existingUser
+      ? { ...existingUser, company: selectedCompanyData?.raw ?? existingUser.company }
+      : null;
 
-      showSuccessAlert(`Rancho cambiado correctamente`);
-      emit("update:modelValue", false);
-      router.push({ path: "/" });
-      window.location.reload();
-    }
+    localStorage.clear();
+    sessionStorage.clear();
+
+    const storage = usedLocalStorage ? localStorage : sessionStorage;
+    storage.setItem("accessToken", data.accessToken);
+    storage.setItem("refreshToken", data.refreshToken);
+    if (updatedUser) storage.setItem("user", JSON.stringify(updatedUser));
+
+    showSuccessAlert("Rancho cambiado correctamente");
+    emit("update:modelValue", false);
+    setTimeout(() => { window.location.href = "/"; }, 1000);
   } catch {
-    showErrorAlert("No se pudo cambiar el rancho. Verifica tu contraseña.");
+    showErrorAlert("No se pudo cambiar el rancho");
   } finally {
     switching.value = false;
   }
 };
 
 const close = () => {
-  selectedCompany.value = "";
-  password.value = "";
+  selectedCompanyId.value = "";
   emit("update:modelValue", false);
 };
 
 watch(() => props.modelValue, (val) => {
   if (val) {
-    selectedCompany.value = "";
-    password.value = "";
+    selectedCompanyId.value = "";
     loadCompanies();
   }
 });
@@ -156,7 +128,7 @@ watch(() => props.modelValue, (val) => {
           />
 
           <v-select
-            v-model="selectedCompany"
+            v-model="selectedCompanyId"
             :items="companies"
             label="Rancho destino *"
             variant="outlined"
@@ -164,26 +136,7 @@ watch(() => props.modelValue, (val) => {
             prepend-inner-icon="ph-buildings"
             :rules="[v => !!v || 'Selecciona el rancho destino']"
             no-data-text="Sin otros ranchos registrados"
-            class="mb-4"
           />
-
-          <v-text-field
-            v-if="!hasSavedCredentials"
-            v-model="password"
-            label="Contraseña *"
-            variant="outlined"
-            density="comfortable"
-            prepend-inner-icon="ph-lock"
-            :type="showPassword ? 'text' : 'password'"
-            :append-inner-icon="showPassword ? 'ph-eye-slash' : 'ph-eye'"
-            @click:append-inner="showPassword = !showPassword"
-            :rules="[v => !!v || 'La contraseña es requerida']"
-            placeholder="••••••••"
-          />
-
-          <v-alert v-if="hasSavedCredentials" type="info" variant="tonal" density="compact" class="mt-2">
-            Se usarán tus credenciales guardadas para acceder al rancho seleccionado.
-          </v-alert>
         </v-form>
       </v-card-text>
 

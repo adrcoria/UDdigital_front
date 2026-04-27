@@ -12,4 +12,12 @@ export default class AccountService {
     return http.post(`${this.basePath}/refresh`, { refreshToken: token });
   }
 
+  async switchCompany(refreshToken: string, companyId: string) {
+    return http.post(`${this.basePath}/switch-company`, { refreshToken, companyId });
+  }
+
+  async changePassword(newPassword: string) {
+    return http.patch(`${this.basePath}/change-password`, { newPassword });
+  }
+
 }

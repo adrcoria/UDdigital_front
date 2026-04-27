@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch } from "vue";
 import { batchService, batchBovineService, milkProductionService } from "@/app/http/httpServiceProvider";
-import { localDateStr } from "@/app/utils/date";
+import { localDateStr, formatDate, toLocalDateKey } from "@/app/utils/date";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 import Table from "@/app/common/components/Table.vue";
 import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
@@ -27,7 +27,7 @@ const confirmDeleteDialog = ref(false);
 
 // Paginación tabla principal
 const page = ref(1);
-const config = ref({ page: 1, noOfItems: 0, itemsPerPage: 10 });
+const config = ref({ page: 1, noOfItems: 0, itemsPerPage: 10, start: 0, end: 0 });
 
 // Selección múltiple para remover
 const selectedIds = ref<string[]>([]);
@@ -102,7 +102,7 @@ const saveMilk = async (bovineId: string) => {
     return;
   }
   const duplicate = (milkHistory.value[bovineId] || []).find((log: any) => {
-    const logDate = new Date(log.registerDate || log.createdAt).toLocaleDateString('en-CA');
+    const logDate = toLocalDateKey(log.registerDate || log.createdAt);
     return logDate === date;
   });
   if (duplicate) {
@@ -116,7 +116,7 @@ const saveMilk = async (bovineId: string) => {
     await milkProductionService.createLog({
       bovineId,
       amount,
-      registerDate: date ? new Date(date).toISOString() : new Date().toISOString(),
+      registerDate: date || localDateStr(),
       userId: sessionUser?.id,
     });
     showSuccessAlert("Producción registrada");
@@ -148,7 +148,7 @@ const saveEdit = async (bovineId: string) => {
   if (!amount || amount <= 0) return;
   const duplicate = (milkHistory.value[bovineId] || []).find((log: any) => {
     if (log.id === logId) return false;
-    const logDate = new Date(log.registerDate || log.createdAt).toLocaleDateString('en-CA');
+    const logDate = toLocalDateKey(log.registerDate || log.createdAt);
     return logDate === date;
   });
   if (duplicate) {
@@ -160,7 +160,7 @@ const saveEdit = async (bovineId: string) => {
     savingEdit.value[bovineId] = true;
     await milkProductionService.updateLog(logId, {
       amount,
-      registerDate: date ? new Date(date).toISOString() : new Date().toISOString(),
+      registerDate: date || localDateStr(),
       userId: sessionUser?.id,
     });
     showSuccessAlert("Registro actualizado");
@@ -205,7 +205,7 @@ const toggleSelectAll = () => {
   if (selectedIds.value.length === filteredBovines.value.length) {
     selectedIds.value = [];
   } else {
-    selectedIds.value = filteredBovines.value.map((b) => b.id);
+    selectedIds.value = filteredBovines.value.map((b: any) => b.id);
   }
 };
 
@@ -449,9 +449,7 @@ const filteredBovines = computed(() => {
                                   <!-- Fila normal -->
                                   <tr v-else>
                                     <td class="text-caption">
-                                      {{ log.registerDate
-                                        ? new Date(log.registerDate).toLocaleDateString('es-MX')
-                                        : new Date(log.createdAt).toLocaleDateString('es-MX') }}
+                                      {{ formatDate(log.registerDate || log.createdAt) }}
                                     </td>
                                     <td class="font-weight-bold text-center text-blue-darken-2">
                                       {{ parseFloat(log.amount).toFixed(2) }} L

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch } from "vue";
 import { batchService, batchBovineService, weightService } from "@/app/http/httpServiceProvider";
-import { localDateStr } from "@/app/utils/date";
+import { localDateStr, formatDate, toLocalDateKey } from "@/app/utils/date";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 import Table from "@/app/common/components/Table.vue";
 import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
@@ -93,7 +93,7 @@ const saveWeight = async (bovineId: string) => {
     return;
   }
   const duplicate = (weightHistory.value[bovineId] || []).find((log: any) => {
-    const logDate = new Date(log.registerDate || log.createdAt).toLocaleDateString('en-CA');
+    const logDate = toLocalDateKey(log.registerDate || log.createdAt);
     return logDate === date;
   });
   if (duplicate) {
@@ -107,7 +107,7 @@ const saveWeight = async (bovineId: string) => {
     const payload = {
       weight,
       bovineId: bovineId,
-      registerDate: date ? new Date(date).toISOString() : new Date().toISOString()
+      registerDate: date || localDateStr()
     };
     await weightService.createWeightLog(payload);
     showSuccessAlert("Peso registrado");
@@ -277,9 +277,7 @@ const filteredBovines = computed(() => {
                               </thead>
                               <tbody>
                                 <tr v-for="(log, i) in weightHistory[bov.id]" :key="log.id">
-                                  <td class="text-caption">{{ log.registerDate ? new
-                                    Date(log.registerDate).toLocaleDateString() : new
-                                    Date(log.createdAt).toLocaleDateString() }}</td>
+                                  <td class="text-caption">{{ formatDate(log.registerDate || log.createdAt) }}</td>
                                   <td class="font-weight-bold text-center">{{ log.weight }} KG</td>
                                   <td class="text-center">
                                     <v-chip v-if="i < weightHistory[bov.id].length - 1" color="success" size="x-small"

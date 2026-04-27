@@ -40,7 +40,7 @@ const userToDelete = ref<any | null>(null);
 /* ------------------ Table Config ------------------ */
 const headers = [
   { title: "Nombre Completo" },
-  { title: "Correo" },
+  { title: "Usuario" },
   { title: "Teléfono" },
   { title: "Empresa" },
   { title: "Rol" },
@@ -200,7 +200,7 @@ watch(page, () => getUsers());
               </v-chip>
             </td>
             <td class="text-center">
-              <ListMenuWithIcon :menuItems="getActionMenu(item)" @onSelect="onSelectAction($event, item)" />
+              <ListMenuWithIcon :menuItems="getActionMenu(item)" icon="ph-dots-three-vertical" variant="text" :color="undefined" @onSelect="onSelectAction($event, item)" />
             </td>
           </tr>
 

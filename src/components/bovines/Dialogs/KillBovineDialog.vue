@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 import { bovineService, liveStockService } from "@/app/http/httpServiceProvider";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 import { localDateStr } from "@/app/utils/date";
@@ -10,12 +10,14 @@ const emit = defineEmits(["update:modelValue", "refresh"]);
 const formRef = ref<any>(null);
 const saving = ref(false);
 const deathCauses = ref<any[]>([]);
+const deathSubCauses = ref<any[]>([]);
 
 const today = localDateStr();
 
 const form = ref({
   deathDate: today,
   deathCauseId: null as string | null,
+  deathSubCauseId: null as string | null,
   deathComments: ""
 });
 
@@ -24,10 +26,24 @@ const rules = {
   noFuture: (v: any) => !v || v <= today || "No se permiten fechas futuras"
 };
 
+const filteredSubCauses = computed(() =>
+  deathSubCauses.value.filter(
+    (s: any) => (s.deathCause?.id ?? s.idDeathCause) === form.value.deathCauseId
+  )
+);
+
+const onCauseChange = () => {
+  form.value.deathSubCauseId = null;
+};
+
 const loadCauses = async () => {
   try {
-    const res = await liveStockService.getItems("death-cause", { page: 1, limit: 1000 });
-    deathCauses.value = res.data?.data || [];
+    const [causeRes, subRes] = await Promise.all([
+      liveStockService.getItems("death-cause", { page: 1, limit: 1000 }),
+      liveStockService.getItems("death-sub-cause", { page: 1, limit: 1000 }),
+    ]);
+    deathCauses.value = causeRes.data?.data?.data || causeRes.data?.data || [];
+    deathSubCauses.value = subRes.data?.data?.data || subRes.data?.data || [];
   } catch {
     showErrorAlert("No se pudieron cargar las causas de muerte");
   }
@@ -35,7 +51,7 @@ const loadCauses = async () => {
 
 watch(() => props.modelValue, (val) => {
   if (val) {
-    form.value = { deathDate: today, deathCauseId: null, deathComments: "" };
+    form.value = { deathDate: today, deathCauseId: null, deathSubCauseId: null, deathComments: "" };
     loadCauses();
   }
 }, { immediate: true });
@@ -48,8 +64,8 @@ const save = async () => {
     saving.value = true;
     await bovineService.killBovine(props.bovine.id, {
       deathDate: form.value.deathDate,
-      deathCauseId: form.value.deathCauseId!,
-      deathComments: form.value.deathComments
+      deathSubCauseId: form.value.deathSubCauseId!,
+      deathComments: form.value.deathComments,
     });
     showSuccessAlert("Registro de defunción guardado");
     emit("refresh");
@@ -98,6 +114,20 @@ const save = async () => {
             variant="outlined"
             :rules="[rules.required]"
             class="mb-2"
+            @update:model-value="onCauseChange"
+          />
+
+          <v-autocomplete
+            v-if="filteredSubCauses.length > 0"
+            v-model="form.deathSubCauseId"
+            :items="filteredSubCauses"
+            item-title="name"
+            item-value="id"
+            label="Subcausa de Muerte"
+            variant="outlined"
+            class="mb-2"
+            no-data-text="Sin subcausas registradas"
+            clearable
           />
 
           <v-text-field

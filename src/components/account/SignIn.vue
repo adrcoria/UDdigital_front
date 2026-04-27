@@ -65,8 +65,12 @@ const onSignIn = async () => {
         localStorage.setItem("companyCode", encryptedCode);
       }
 
+      if (data.passwordResetNeeded) {
+        storage.setItem("mustChangePassword", "1");
+      }
+
       showSuccessAlert(`¡Bienvenido!`);
-      router.push({ path: "/" });
+      router.push({ path: data.passwordResetNeeded ? "/pass-change" : "/" });
     }
   } catch (error: any) {
     errorMsg.value = "Credenciales incorrectas";

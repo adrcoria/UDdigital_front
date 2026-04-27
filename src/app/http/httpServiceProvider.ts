@@ -27,6 +27,7 @@ import MilkProductionService from "./services/MilkProductionService";
 import InventoryService from "./services/InventoryService";
 import RanchersService from "./services/ranchersService";
 import TransferLogService from "./services/TransferLogService";
+import VentaGanadoService from "./services/VentaGanadoService";
 const heatService = new HeatService();
 const birthService = new BirthService();
 const roleService = new RoleService();
@@ -57,8 +58,10 @@ const milkProductionService = new MilkProductionService();
 const inventoryService = new InventoryService();
 const ranchersService = new RanchersService();
 const transferLogService = new TransferLogService();
+const ventaGanadoService = new VentaGanadoService();
 
 export {
+  ventaGanadoService,
   transferLogService,
   ranchersService,
   inventoryService,

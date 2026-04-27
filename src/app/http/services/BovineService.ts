@@ -77,7 +77,7 @@ export default class BovineService {
     return http.post(`${this.path}/deprecate-siniiga-ear-tag`, payload);
   }
 
-  async killBovine(id: string, payload: { deathDate: string; deathCauseId: string; deathComments: string }) {
+  async killBovine(id: string, payload: { deathDate: string; deathSubCauseId: string; deathComments: string }) {
     return http.patch(`${this.path}/${id}/kill`, payload);
   }
 

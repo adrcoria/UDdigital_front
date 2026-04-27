@@ -4,6 +4,8 @@ import { usuariosService, companyService, roleService } from "@/app/http/httpSer
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 import { isSuperUser, getCompanyId, ROLES } from "@/app/utils/authHelper";
 
+const DEFAULT_PASSWORD = "T12345678w";
+
 const props = defineProps<{ modelValue: boolean; user: any | null }>();
 const emit = defineEmits(["refresh", "update:modelValue"]);
 
@@ -14,8 +16,6 @@ watch(dialog, v => emit("update:modelValue", v));
 /* ---------- Form State ---------- */
 const form = ref({
   mail: "",
-  password: "",
-  confirmPassword: "",
   name: "",
   lastName: "",
   phone: "",
@@ -25,8 +25,6 @@ const form = ref({
 
 const touched = ref({
   mail: false,
-  password: false,
-  confirmPassword: false,
   name: false,
   lastName: false,
   phone: false,
@@ -46,8 +44,6 @@ const formatPhone = (val: string) => {
 const resetForm = () => {
   form.value = {
     mail: "",
-    password: "",
-    confirmPassword: "",
     name: "",
     lastName: "",
     phone: "",
@@ -61,7 +57,6 @@ const resetForm = () => {
 const companies = ref<any[]>([]);
 const allRoles = ref<any[]>([]);
 const loadingOptions = ref(false);
-const showPassword = ref(false);
 
 const filteredRoles = computed(() => {
   const baseRoles = isSuperUser() ? allRoles.value : allRoles.value.filter(role => role.id !== ROLES.SUPER_USER);
@@ -88,16 +83,11 @@ const loading = ref(false);
 
 /* ---------- Validaciones ---------- */
 const req = (v: any) => !!v || "Obligatorio";
-// ✅ Validamos que sea correo SOLO si quieres forzar ese formato. 
-// Si no, podemos dejar solo 'req'. He dejado una Regex más flexible.
-const emailRule = (v: string) => (v && v.length > 2) || "Usuario demasiado corto"; 
-
-const minPass = (v: string) => (v && v.length >= 6) || "Mínimo 6 caracteres";
+const emailRule = (v: string) => (v && v.length > 2) || "Usuario demasiado corto";
 const phoneRule = (v: string) => {
   const digits = (v || "").replace(/\D/g, "");
   return digits.length === 10 || "Deben ser 10 dígitos";
 };
-const matchRule = (v: string) => v === form.value.password || "Las contraseñas no coinciden";
 
 const nameRules = computed(() => touched.value.name ? [req] : []);
 const lastNameRules = computed(() => touched.value.lastName ? [req] : []);
@@ -106,41 +96,14 @@ const phoneRules = computed(() => touched.value.phone ? [req, phoneRule] : []);
 const roleRules = computed(() => touched.value.roleId ? [req] : []);
 const companyRules = computed(() => touched.value.companyId ? [req] : []);
 
-const passwordRules = computed(() => {
-  if (!touched.value.password) return [];
-  return isEdit.value ? [] : [req, minPass];
-});
-
-const confirmRules = computed(() => {
-  if (!touched.value.confirmPassword) return [];
-  if (isEdit.value && !form.value.password) return [];
-  return [req, matchRule];
-});
-
-// ✅ CORRECCIÓN DE LA LÓGICA DEL BOTÓN
 const isFormValid = computed(() => {
   const digits = (form.value.phone || "").replace(/\D/g, "");
-  
-  // Validaciones básicas de campos obligatorios
-  const hasBasicInfo = !!form.value.name?.trim() && 
-                       !!form.value.lastName?.trim() && 
-                       !!form.value.mail?.trim() && 
-                       !!form.value.roleId && 
-                       !!form.value.companyId && 
-                       digits.length === 10;
-
-  const passwordsMatch = form.value.password === form.value.confirmPassword;
-
-  if (isEdit.value) {
-    // En edición: si escriben algo en password, debe ser válido y coincidir
-    if (form.value.password) {
-      return hasBasicInfo && passwordsMatch && form.value.password.length >= 6;
-    }
-    return hasBasicInfo;
-  }
-  
-  // En creación: password es obligatorio, min 6 caracteres y debe coincidir
-  return hasBasicInfo && !!form.value.password && form.value.password.length >= 6 && passwordsMatch;
+  return !!form.value.name?.trim() &&
+    !!form.value.lastName?.trim() &&
+    !!form.value.mail?.trim() &&
+    !!form.value.roleId &&
+    !!form.value.companyId &&
+    digits.length === 10;
 });
 
 /* ---------- Watchers ---------- */
@@ -148,13 +111,11 @@ watch(() => props.user, (u) => {
   if (u) {
     form.value = {
       mail: u.mail || "",
-      password: "",
-      confirmPassword: "",
       name: u.name || "",
       lastName: u.lastName || "",
       phone: formatPhone(u.phone || ""),
-      roleId: u.roleId || "",
-      companyId: u.companyId || "",
+      roleId: u.roleId || u.role?.id || "",
+      companyId: u.companyId || u.company?.id || "",
     };
   } else {
     resetForm();
@@ -177,15 +138,17 @@ const save = async () => {
       roleId: form.value.roleId,
       companyId: form.value.companyId,
     };
-    
-    if (form.value.password) payload.password = form.value.password;
+
+    if (!isEdit.value) {
+      payload.password = DEFAULT_PASSWORD;
+    }
 
     if (isEdit.value) {
       await usuariosService.updateUser(props.user.id, payload);
       showSuccessAlert("Usuario actualizado");
     } else {
       await usuariosService.createUser(payload);
-      showSuccessAlert("Usuario registrado");
+      showSuccessAlert("Usuario registrado. Contraseña temporal asignada.");
     }
 
     emit("refresh");
@@ -208,54 +171,37 @@ const save = async () => {
 
       <v-card-text>
         <div class="row">
-          <v-text-field v-model="form.name" label="Nombre(s) *" :rules="nameRules" 
+          <v-text-field v-model="form.name" label="Nombre(s) *" :rules="nameRules"
             @blur="touched.name = true" class="flex-1" variant="filled" />
-          <v-text-field v-model="form.lastName" label="Apellidos *" :rules="lastNameRules" 
+          <v-text-field v-model="form.lastName" label="Apellidos *" :rules="lastNameRules"
             @blur="touched.lastName = true" class="flex-1" variant="filled" />
         </div>
 
-        <v-text-field v-model="form.mail" label="Usuario *" :rules="mailRules" 
+        <v-text-field v-model="form.mail" label="Usuario *" :rules="mailRules"
           @blur="touched.mail = true" :disabled="isEdit" variant="filled" />
 
-        <div class="row">
-          <v-text-field v-model="form.password" :label="isEdit ? 'Nueva contraseña (opcional)' : 'Contraseña *'" 
-            :type="showPassword ? 'text' : 'password'" 
-            :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'" 
-            @click:append-inner="showPassword = !showPassword" 
-            :rules="passwordRules" 
-            @blur="touched.password = true" 
-            autocomplete="new-password"
-            variant="filled" class="flex-1" />
-          
-          <v-text-field v-model="form.confirmPassword" label="Confirmar contraseña *" 
-            :type="showPassword ? 'text' : 'password'" 
-            :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'" 
-            @click:append-inner="showPassword = !showPassword"
-            :rules="confirmRules" 
-            @blur="touched.confirmPassword = true" 
-            autocomplete="new-password"
-            variant="filled" class="flex-1" />
-        </div>
+        <v-alert v-if="!isEdit" type="info" variant="tonal" density="compact" class="mb-4" icon="ph-lock">
+          Se asignará la contraseña temporal <strong>T12345678w</strong>. El usuario deberá cambiarla al iniciar sesión.
+        </v-alert>
 
         <div class="row">
-          <v-text-field 
-            :model-value="form.phone" 
+          <v-text-field
+            :model-value="form.phone"
             @update:model-value="val => form.phone = formatPhone(val)"
-            label="Teléfono *" 
-            :rules="phoneRules" 
-            @blur="touched.phone = true" 
+            label="Teléfono *"
+            :rules="phoneRules"
+            @blur="touched.phone = true"
             placeholder="(XXX) XXX-XXXX"
             variant="filled" class="flex-1" />
-          
-          <v-autocomplete v-model="form.roleId" label="Rol *" :items="filteredRoles" item-title="name" 
-            item-value="id" :loading="loadingOptions" :rules="roleRules" 
+
+          <v-autocomplete v-model="form.roleId" label="Rol *" :items="filteredRoles" item-title="name"
+            item-value="id" :loading="loadingOptions" :rules="roleRules"
             @blur="touched.roleId = true" class="flex-1" clearable variant="filled" />
         </div>
 
-        <v-autocomplete v-model="form.companyId" label="Empresa *" :items="companies" item-title="name" 
-          item-value="id" :loading="loadingOptions" :rules="companyRules" 
-          @blur="touched.companyId = true" :disabled="!isSuperUser()" clearable variant="filled" />
-          
+        <v-autocomplete v-model="form.companyId" label="Empresa *" :items="companies" item-title="name"
+          item-value="id" :loading="loadingOptions" :rules="companyRules"
+          @blur="touched.companyId = true" :disabled="isEdit || !isSuperUser()" clearable variant="filled" />
       </v-card-text>
 
       <v-card-actions class="pa-4">

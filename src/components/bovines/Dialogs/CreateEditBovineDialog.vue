@@ -18,7 +18,7 @@ const today = computed(() => localDateStr());
 const factorVenta = ref(0);
 
 const lists = ref<any>({
-    sex: [], races: [], types: [], purposes: [], origins: [], owners: [], deathCauses: []
+    sex: [], races: [], types: [], purposes: [], origins: [], owners: [], deathCauses: [], deathSubCauses: []
 });
 
 const reproductiveStatusOptions = computed(() => {
@@ -52,10 +52,10 @@ const form = ref<any>({
     notes: "",
     dateAddedToHerd: "",
     daysOpen: 1,
-    birthWeight: 0,
+    birthWeight: null,
     saleValue: 0,
     purchaseValue: 0,
-    netWeight: 0,
+    netWeight: null,
     gdpTotal: 0.8,
     sexId: null,
     bovineOriginId: null,
@@ -67,6 +67,7 @@ const form = ref<any>({
     bovineStatus: "VIVO",
     deathDate: "",
     deathCauseId: null,
+    deathSubCauseId: null,
     deathComments: "",
     reproductiveStatus: null,
     raceAssignments: []
@@ -85,11 +86,11 @@ const getAvailableRaces = (currentIndex: number) => {
 const resetForm = () => {
     form.value = {
         siniigaEarTag: "", internalEarTag: "", name: "", birthDate: "",
-        notes: "", dateAddedToHerd: "", daysOpen: 1, birthWeight: 0,
-        saleValue: 0, purchaseValue: 0, netWeight: 0, gdpTotal: 0.8,
+        notes: "", dateAddedToHerd: "", daysOpen: 1, birthWeight: null,
+        saleValue: 0, purchaseValue: 0, netWeight: null, gdpTotal: 0.8,
         sexId: null, bovineOriginId: null, bovineTypeId: null, bovinePurposeId: null,
         livestockOwnerId: null, fatherId: null, motherId: null,
-        bovineStatus: "VIVO", deathDate: "", deathCauseId: null, deathComments: "",
+        bovineStatus: "VIVO", deathDate: "", deathCauseId: null, deathSubCauseId: null, deathComments: "",
         reproductiveStatus: null
     };
     selectedRaces.value = [{ raceId: null, percentage: 100, order: 1 }];
@@ -136,6 +137,14 @@ const isReproductiveAge = computed(() => {
 
 const filteredPurposes = computed(() => lists.value.purposes);
 
+const filteredDeathSubCauses = computed(() =>
+    (lists.value.deathSubCauses || []).filter(
+        (s: any) => (s.deathCause?.id ?? s.idDeathCause) === form.value.deathCauseId
+    )
+);
+
+const onDeathCauseChange = () => { form.value.deathSubCauseId = null; };
+
 const isCompra = computed(() => {
     if (!form.value.bovineOriginId || !lists.value.origins.length) return false;
     const origin = lists.value.origins.find((o: any) => o.id === form.value.bovineOriginId);
@@ -152,6 +161,7 @@ const isHato = computed(() => {
 const rules = {
     required: (v: any) => !!v || "Este campo es obligatorio",
     noFuture: (v: any) => !v || v <= today.value || "No se permiten fechas futuras",
+    notBeforeBirth: (v: any) => !v || !form.value.birthDate || v >= form.value.birthDate || "No puede ser anterior a la fecha de nacimiento",
     purchaseRequired: (v: any) => {
         const origin = lists.value.origins.find((o: any) => o.id === form.value.bovineOriginId);
         if (origin?.name.toUpperCase() === 'COMPRA') return !!v || "El valor de compra es obligatorio";
@@ -163,7 +173,10 @@ const rules = {
 };
 
 /* ------------------ Logic: Watchers ------------------ */
-watch(() => form.value.birthWeight, () => onChangePrecio());
+watch(() => form.value.netWeight, (v) => {
+    form.value.birthWeight = Number(v || 0);
+    form.value.saleValue = Number(v || 0) * (factorVenta.value || 0);
+});
 
 watch(() => form.value.birthDate, () => {
     if (isEditing.value || !form.value.sexId) return;
@@ -202,6 +215,7 @@ watch(() => form.value.bovineStatus, (newStatus) => {
     if (newStatus === 'VIVO') {
         form.value.deathDate = "";
         form.value.deathCauseId = null;
+        form.value.deathSubCauseId = null;
         form.value.deathComments = "";
     }
 });
@@ -239,10 +253,10 @@ const loadData = async () => {
             } catch (e) { return []; }
         };
 
-        const [sex, race, type, purpose, origin, owner, death, resParams] = await Promise.all([
+        const [sex, race, type, purpose, origin, owner, death, deathSub, resParams] = await Promise.all([
             fetchSafe("sex"), fetchSafe("bovine-race"), fetchSafe("bovine-type"),
             fetchSafe("bovine-purpose"), fetchSafe("bovine-origin"),
-            fetchSafe("livestock-owner"), fetchSafe("death-cause"),
+            fetchSafe("livestock-owner"), fetchSafe("death-cause"), fetchSafe("death-sub-cause"),
             parameterService.getParameters()
         ]);
 
@@ -250,7 +264,7 @@ const loadData = async () => {
         const factorParam = paramsList.find((p: any) => p.name === 'Factor Venta');
         factorVenta.value = factorParam ? Number(factorParam.value) : 8;
 
-        lists.value = { sex, races: race, types: type, purposes: purpose, origins: origin, owners: owner, deathCauses: death };
+        lists.value = { sex, races: race, types: type, purposes: purpose, origins: origin, owners: owner, deathCauses: death, deathSubCauses: deathSub };
 
         const maleId = sex.find((s: any) => s.name.toUpperCase() === 'MACHO')?.id;
         const femaleId = sex.find((s: any) => s.name.toUpperCase() === 'HEMBRA')?.id;
@@ -387,10 +401,9 @@ const save = async () => {
             notes: form.value.notes,
             dateAddedToHerd: form.value.dateAddedToHerd,
             daysOpen: Number(form.value.daysOpen),
-            birthWeight: Number(form.value.birthWeight),
+            ...(form.value.netWeight ? { netWeight: Number(form.value.netWeight), birthWeight: Number(form.value.netWeight) } : {}),
             saleValue: Number(form.value.saleValue),
             purchaseValue: Number(form.value.purchaseValue),
-            netWeight: Number(form.value.netWeight),
             sexId: form.value.sexId,
             bovineOriginId: form.value.bovineOriginId,
             bovineTypeId: form.value.bovineTypeId,
@@ -401,6 +414,7 @@ const save = async () => {
             bovineStatus: form.value.bovineStatus,
             deathDate: form.value.deathDate,
             deathCauseId: form.value.deathCauseId,
+            ...(form.value.deathSubCauseId ? { deathSubCauseId: form.value.deathSubCauseId } : {}),
             deathComments: form.value.deathComments,
             reproductiveStatus: form.value.reproductiveStatus,
             raceAssignments: selectedRaces.value.map((r, i) => ({
@@ -477,24 +491,15 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                         <v-col cols="12" md="4"><v-text-field label="Nombre / Apodo *" v-model="form.name"
                                 :rules="[rules.required]" variant="outlined" /></v-col>
 
-                        <v-col cols="12" md="3"><v-text-field label="Peso Inicial (kg) *" type="number"
-                                v-model.number="form.birthWeight" :rules="[rules.required]"
-                                variant="outlined" /></v-col>
-                        <v-col style="display: none;" cols="12" md="3"><v-text-field label="GDP" v-model="form.gdpTotal"
-                                variant="outlined" readonly bg-color="grey-lighten-4" /></v-col>
-                        <v-col cols="12" md="3"><v-text-field label="Peso Neto" v-model="form.netWeight"
-                                variant="outlined" readonly suffix="KG" bg-color="grey-lighten-4" /></v-col>
-                        <v-col cols="12" md="6">
-                            <v-text-field :label="`Valor Venta (Factor: ${factorVenta})`" v-model="form.saleValue"
-                                variant="outlined" readonly prefix="$" bg-color="grey-lighten-4" />
-                        </v-col>
-
-                        <v-col cols="12" md="6"><v-text-field label="Fecha Nac. *" type="date" v-model="form.birthDate"
+                        <v-col cols="12" md="4"><v-text-field label="Peso Neto (kg)" type="number"
+                                v-model.number="form.netWeight" variant="outlined" suffix="KG"
+                                placeholder="Opcional" /></v-col>
+                        <v-col cols="12" md="4"><v-text-field label="Fecha Nac. *" type="date" v-model="form.birthDate"
                                 :rules="[rules.required, rules.noFuture]" :max="today" variant="outlined"
                                 :readonly="isCria && !!props.initialValues?.birthDate"
                                 :bg-color="isCria && !!props.initialValues?.birthDate ? 'grey-lighten-4' : undefined" /></v-col>
-                        <v-col cols="12" md="6"><v-text-field label="Fecha Ingreso Hato *" type="date"
-                                v-model="form.dateAddedToHerd" :rules="[rules.required, rules.noFuture]" :max="today"
+                        <v-col cols="12" md="4"><v-text-field label="Fecha Ingreso Hato *" type="date"
+                                v-model="form.dateAddedToHerd" :rules="[rules.required, rules.noFuture, rules.notBeforeBirth]" :max="today"
                                 variant="outlined" /></v-col>
 
                         <v-col cols="12" md="3"><v-autocomplete label="Sexo *" v-model="form.sexId" :items="lists.sex"
@@ -511,14 +516,14 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                                 :items="lists.origins" item-title="name" item-value="id" :rules="[rules.required]"
                                 variant="outlined" :disabled="isCria" /></v-col>
 
+                        <v-col cols="12" :md="isReproductiveAge ? 8 : 12"><v-autocomplete label="Propietario *" v-model="form.livestockOwnerId"
+                                :items="lists.owners" :item-title="(i: any) => `${i.firstName} ${i.lastName}`" item-value="id"
+                                :rules="[rules.required]" variant="outlined" /></v-col>
                         <v-col cols="12" md="4" v-if="isReproductiveAge">
                             <v-select label="Estatus Reproductivo *" v-model="form.reproductiveStatus"
                                 :items="reproductiveStatusOptions" item-title="title" item-value="value"
                                 variant="outlined" :rules="[rules.required]" />
                         </v-col>
-                        <v-col cols="12" :md="form.sexId ? 8 : 12"><v-autocomplete label="Propietario *" v-model="form.livestockOwnerId"
-                                :items="lists.owners" :item-title="(i: any) => `${i.firstName} ${i.lastName}`" item-value="id"
-                                :rules="[rules.required]" variant="outlined" /></v-col>
 
                         <v-col cols="12" v-if="isCompra">
                             <v-text-field label="Valor de Compra *" type="number" v-model.number="form.purchaseValue"
@@ -574,9 +579,17 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
                         <v-col cols="12" md="6" v-if="!item?.id && form.bovineStatus === 'MUERTO'"><v-text-field
                                 label="Fecha Defunción *" type="date" v-model="form.deathDate"
                                 :rules="[rules.required, rules.noFuture]" :max="today" variant="outlined" /></v-col>
-                        <v-col cols="12" md="6" v-if="!item?.id && form.bovineStatus === 'MUERTO'"><v-autocomplete
-                                label="Causa de Muerte *" v-model="form.deathCauseId" :items="lists.deathCauses"
-                                item-title="name" item-value="id" :rules="[rules.required]" variant="outlined" /></v-col>
+                        <v-col cols="12" md="6" v-if="!item?.id && form.bovineStatus === 'MUERTO'">
+                            <v-autocomplete label="Causa de Muerte *" v-model="form.deathCauseId"
+                                :items="lists.deathCauses" item-title="name" item-value="id"
+                                :rules="[rules.required]" variant="outlined"
+                                @update:model-value="onDeathCauseChange" />
+                        </v-col>
+                        <v-col cols="12" md="6" v-if="!item?.id && form.bovineStatus === 'MUERTO' && filteredDeathSubCauses.length > 0">
+                            <v-autocomplete label="Subcausa de Muerte" v-model="form.deathSubCauseId"
+                                :items="filteredDeathSubCauses" item-title="name" item-value="id"
+                                variant="outlined" clearable no-data-text="Sin subcausas registradas" />
+                        </v-col>
                         <v-col cols="12" md="6" v-if="!item?.id && form.bovineStatus === 'MUERTO'"><v-text-field
                                 label="Comentarios de muerte*" v-model="form.deathComments"
                                 :rules="[rules.required]" variant="outlined" /></v-col>

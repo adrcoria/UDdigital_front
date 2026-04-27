@@ -21,15 +21,19 @@ const form = ref({
   name: "",
   phone: "",
   months: 0,
-  sexId: null as string | null
+  sexId: null as string | null,
+  idDeathCause: null as string | null,
 });
 
 const touched = ref({
   name: false,
   phone: false,
   months: false,
-  sexId: false
+  sexId: false,
+  idDeathCause: false,
 });
+
+const deathCauseList = ref<any[]>([]);
 
 /* ------------------ Validations ------------------ */
 const req = (v: any) => !!v || "Obligatorio";
@@ -39,6 +43,7 @@ const nameRules = computed(() => touched.value.name ? [req] : []);
 const phoneRules = computed(() => (props.catalog === "livestock-owner" && touched.value.phone) ? [req] : []);
 const sexRules = computed(() => (props.catalog === "bovine-type" && touched.value.sexId) ? [req] : []);
 const monthRules = computed(() => (props.catalog === "bovine-type" && touched.value.months) ? [pos] : []);
+const deathCauseRules = computed(() => (props.catalog === "death-sub-cause" && touched.value.idDeathCause) ? [req] : []);
 
 /* ------------------ Logic ------------------ */
 const fetchSexCatalog = async () => {
@@ -54,22 +59,33 @@ const fetchSexCatalog = async () => {
   }
 };
 
+const fetchDeathCauses = async () => {
+  if (props.catalog !== 'death-sub-cause') return;
+  try {
+    const res = await liveStockService.getItems('death-cause', { page: 1, limit: 100 });
+    deathCauseList.value = res.data?.data?.data || res.data?.data || [];
+  } catch {
+    console.error("Error cargando causas de muerte");
+  }
+};
+
 watch(
   () => props.modelValue,
   async (v) => {
     dialog.value = v;
     if (v) {
-      await fetchSexCatalog();
+      await Promise.all([fetchSexCatalog(), fetchDeathCauses()]);
       if (props.item) {
         form.value = {
           name: props.item.name,
           phone: props.item.phone || "",
           months: props.item.months || 0,
-          sexId: props.item.sexId || props.item.sex?.id || null
+          sexId: props.item.sexId || props.item.sex?.id || null,
+          idDeathCause: props.item.idDeathCause || props.item.deathCause?.id || null,
         };
       } else {
-        form.value = { name: "", phone: "", months: 0, sexId: null };
-        touched.value = { name: false, phone: false, months: false, sexId: false };
+        form.value = { name: "", phone: "", months: 0, sexId: null, idDeathCause: null };
+        touched.value = { name: false, phone: false, months: false, sexId: false, idDeathCause: false };
       }
     }
   },
@@ -81,20 +97,16 @@ watch(dialog, (v) => emit("update:modelValue", v));
 const isFormValid = computed(() => {
   const baseValid = !!form.value.name;
   if (props.catalog === "livestock-owner") return baseValid && !!form.value.phone;
-  if (props.catalog === "bovine-type") {
-    // Validación de meses > 0 y existencia de sexId
-    return baseValid && !!form.value.sexId && Number(form.value.months) > 0;
-  }
+  if (props.catalog === "bovine-type") return baseValid && !!form.value.sexId && Number(form.value.months) > 0;
+  if (props.catalog === "death-sub-cause") return baseValid && !!form.value.idDeathCause;
   return baseValid;
 });
 
 const save = async () => {
   touched.value.name = true;
   if (props.catalog === "livestock-owner") touched.value.phone = true;
-  if (props.catalog === "bovine-type") {
-    touched.value.sexId = true;
-    touched.value.months = true;
-  }
+  if (props.catalog === "bovine-type") { touched.value.sexId = true; touched.value.months = true; }
+  if (props.catalog === "death-sub-cause") touched.value.idDeathCause = true;
 
   if (!isFormValid.value) return;
 
@@ -110,7 +122,11 @@ const save = async () => {
 
     if (props.catalog === "bovine-type") {
       payload.months = Number(form.value.months);
-      payload.sexId = form.value.sexId; // UUID de sexo especificado
+      payload.sexId = form.value.sexId;
+    }
+
+    if (props.catalog === "death-sub-cause") {
+      payload.idDeathCause = form.value.idDeathCause;
     }
 
     if (props.item?.id) {
@@ -184,6 +200,21 @@ const save = async () => {
           variant="outlined"
           density="comfortable"
           class="mt-2"
+        />
+
+        <v-autocomplete
+          v-if="catalog === 'death-sub-cause'"
+          label="Causa de Muerte Principal *"
+          v-model="form.idDeathCause"
+          :items="deathCauseList"
+          item-title="name"
+          item-value="id"
+          :rules="deathCauseRules"
+          @blur="touched.idDeathCause = true"
+          variant="outlined"
+          density="comfortable"
+          class="mt-2"
+          no-data-text="Sin causas registradas"
         />
       </v-card-text>
 

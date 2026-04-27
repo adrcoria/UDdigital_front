@@ -55,6 +55,14 @@ const headers = computed(() => {
     ];
   }
 
+  if (props.catalog === "death-sub-cause") {
+    return [
+      { title: "Subcausa" },
+      { title: "Causa Principal" },
+      { title: "Acciones", align: "center" },
+    ];
+  }
+
   return [
     { title: "Nombre" },
     ...(isReadOnly.value ? [] : [{ title: "Acciones", align: "center" }]),
@@ -188,6 +196,15 @@ onMounted(getItems);
                 </v-chip>
               </td>
               <td>{{ item.months }} meses</td>
+            </template>
+
+            <template v-else-if="catalog === 'death-sub-cause'">
+              <td class="font-weight-medium">{{ item.name }}</td>
+              <td>
+                <v-chip size="small" color="error" variant="tonal">
+                  {{ item.deathCause?.name || '---' }}
+                </v-chip>
+              </td>
             </template>
 
             <template v-else>
