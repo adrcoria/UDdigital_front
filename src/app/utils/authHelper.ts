@@ -38,6 +38,66 @@ export const canManageAll = (): boolean => [ROLES.SUPER_USER, ROLES.ADMIN].inclu
 export const getLoggedUserId = (): string | null => getStoredUser()?.id || null;
 
 /**
+ * CANDADO DE PERIODOS CONTABLES
+ * Los meses vencidos (anteriores al mes en curso) quedan cerrados: no se pueden
+ * registrar, editar ni eliminar operaciones con esa fecha.
+ * Solo el Super Usuario puede realizar ajustes en un mes ya cerrado.
+ */
+export const canBypassPeriodLock = (): boolean => isSuperUser();
+
+/**
+ * Normaliza cualquier fecha a "YYYY-MM-DD" sin desfases de zona horaria
+ * (respeta el día tal como viene si el string ya trae el formato ISO)
+ */
+export const toDateOnly = (value: string | Date | null | undefined): string => {
+  if (!value) return "";
+
+  if (typeof value === "string") {
+    const isoDate = value.match(/^\d{4}-\d{2}-\d{2}/);
+    if (isoDate) return isoDate[0];
+  }
+
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+/** Primer día del mes en curso ("YYYY-MM-01"): inicio del periodo abierto */
+export const getCurrentPeriodStart = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}-01`;
+};
+
+/**
+ * Fecha mínima capturable por el usuario actual.
+ * Cadena vacía = sin límite (Super Usuario)
+ */
+export const getMinOperationDate = (): string =>
+  canBypassPeriodLock() ? "" : getCurrentPeriodStart();
+
+/** true si la fecha cae en un mes vencido y el usuario no puede saltarse el candado */
+export const isPeriodLocked = (date: string | Date | null | undefined): boolean => {
+  if (!date) return false;
+  if (canBypassPeriodLock()) return false;
+
+  const dateOnly = toDateOnly(date);
+  if (!dateOnly) return false;
+
+  return dateOnly < getCurrentPeriodStart();
+};
+
+/** Mensaje único para mostrar al usuario cuando el candado se activa */
+export const PERIOD_LOCK_MESSAGE =
+  "El mes ya está cerrado. Solo el Super Usuario puede registrar o ajustar operaciones de meses vencidos.";
+
+/**
  * FUNCIÓN DE LOGOUT
  * Limpia la sesión pero preserva el "Recordarme" si existe
  */

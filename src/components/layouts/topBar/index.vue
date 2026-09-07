@@ -12,6 +12,7 @@ import SwitchRanchDialog from "@/components/layouts/topBar/SwitchRanchDialog.vue
 
 import { useLayoutStore } from "@/store/app";
 import { SIDEBAR_SIZE, LAYOUTS, LAYOUT_POSITION } from "@/app/const";
+import { isSuperUser } from "@/app/utils/authHelper";
 import { onMounted, onUnmounted, computed, ref } from "vue";
 
 const { SMALL, DEFAULT } = SIDEBAR_SIZE;
@@ -139,7 +140,7 @@ onUnmounted(() => {
             <ScreenSize />
             <!-- <SiteMode /> -->
             <!-- <Notifications /> -->
-            <v-tooltip text="Cambiar Rancho" location="bottom">
+            <v-tooltip v-if="isSuperUser()" text="Cambiar Rancho" location="bottom">
               <template #activator="{ props: tooltipProps }">
                 <v-btn
                   v-bind="tooltipProps"

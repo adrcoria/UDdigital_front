@@ -14,6 +14,7 @@ const SECRET_KEY = "UGDigital2025$$";
 
 const loading = ref(false);
 const isRemember = ref(false);
+const showPassword = ref(false);
 const errorMsg = ref("");
 const formData = ref({
   companyCode: { value: "", isValid: true },
@@ -47,8 +48,13 @@ const onSignIn = async () => {
     const { data } = response.data;
 
     if ([200, 201].includes(response.data.statusCode)) {
-      localStorage.clear(); 
+      localStorage.clear();
       sessionStorage.clear();
+
+      if (data.passwordResetNeeded) {
+        router.push({ path: `/pass-reset/${payload.mail}` });
+        return;
+      }
 
       const storage = isRemember.value ? localStorage : sessionStorage;
       storage.setItem("accessToken", data.accessToken);
@@ -65,12 +71,8 @@ const onSignIn = async () => {
         localStorage.setItem("companyCode", encryptedCode);
       }
 
-      if (data.passwordResetNeeded) {
-        storage.setItem("mustChangePassword", "1");
-      }
-
       showSuccessAlert(`¡Bienvenido!`);
-      router.push({ path: data.passwordResetNeeded ? "/pass-change" : "/" });
+      router.push({ path: "/" });
     }
   } catch (error: any) {
     errorMsg.value = "Credenciales incorrectas";
@@ -136,7 +138,7 @@ onMounted(() => {
             </v-alert>
 
             <div class="field-group">
-              <label>Email</label>
+              <label>Usuario</label>
               <v-text-field v-model="formData.mail.value" :rules="emailRules" variant="outlined" placeholder="administrador@gmail.com" prepend-inner-icon="ph-envelope" color="primary" />
             </div>
 
@@ -147,10 +149,15 @@ onMounted(() => {
 
             <div class="field-group mt-4">
               <label>Contraseña</label>
-              <v-text-field v-model="formData.password.value" :rules="passwordRules" variant="outlined" type="password" placeholder="••••••••" prepend-inner-icon="ph-lock" color="primary" />
+              <v-text-field v-model="formData.password.value" :rules="passwordRules" variant="outlined" :type="showPassword ? 'text' : 'password'" placeholder="••••••••" prepend-inner-icon="ph-lock" :append-inner-icon="showPassword ? 'ph-eye-slash' : 'ph-eye'" @click:append-inner="showPassword = !showPassword" color="primary" />
             </div>
 
-            <v-checkbox v-model="isRemember" label="Recordarme" color="primary" hide-details density="compact" class="mt-2" />
+            <div class="d-flex align-center justify-space-between mt-2">
+              <v-checkbox v-model="isRemember" label="Recordarme" color="primary" hide-details density="compact" />
+              <v-btn to="/pass-reset" variant="text" color="primary" size="small" class="font-weight-bold text-none pa-0">
+                ¿Olvidaste tu contraseña?
+              </v-btn>
+            </div>
 
             <v-btn color="primary" block size="x-large" class="mt-6 font-weight-bold text-none login-btn" elevation="4" :loading="loading" type="submit">
               Iniciar sesión

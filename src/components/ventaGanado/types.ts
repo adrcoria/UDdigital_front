@@ -17,7 +17,7 @@ export interface SaleOrderItem {
   sex?: string;
   races: string;
   weight: number;
-  saleValue: number;   // captura manual — ingresado por el usuario
+  saleValue: number;   // calculado: peso × precio por kilo (no se captura a mano)
 }
 
 export interface SaleFilters {

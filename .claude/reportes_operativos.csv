@@ -1,0 +1,28 @@
+ID,Modulo,Nombre del Reporte,Descripcion,Filtros,Formato Exportacion
+R-01,Ganaderia / Bovinos,Inventario del hato,Lista completa de bovinos activos con arete raza sexo edad peso actual y ubicacion,Rancho / Sexo / Raza / Lote,PDF - Excel
+R-02,Ganaderia / Bovinos,Historial de pesos por bovino,Evolucion de peso de un bovino en un rango de fechas,Rancho / Arete / Fecha inicio / Fecha fin,PDF - Excel
+R-03,Ganaderia / Bovinos,Registro de nacimientos,Nacimientos por periodo: madre cria fecha y peso al nacer,Rancho / Fecha inicio / Fecha fin,PDF - Excel
+R-04,Ganaderia / Bovinos,Registro de bajas / sacrificios,Animales dados de baja con causa y fecha,Rancho / Causa / Fecha inicio / Fecha fin,PDF - Excel
+R-05,Ganaderia / Bovinos,Historial de traslados,Movimientos de animales entre ranchos o lotes por periodo,Rancho origen / Rancho destino / Fecha inicio / Fecha fin,PDF - Excel
+R-06,Ganaderia / Bovinos,Registro de gestaciones,Vacas prenadas con fecha probable de parto y estado,Rancho / Estado / Fecha probable parto,PDF - Excel
+R-07,Ganaderia / Bovinos,Registro de calores / celo,Eventos de celo registrados con fecha y resultado,Rancho / Resultado / Fecha inicio / Fecha fin,PDF - Excel
+R-08,Ganaderia / Bovinos,Historial de cambios de arete,Trazabilidad de reemplazos de identificadores por animal,Rancho / Arete / Fecha inicio / Fecha fin,PDF - Excel
+R-09,Lotes de Engorda,Lotes de engorda activos,Estado actual de cada lote: bovinos peso promedio y dias en lote,Rancho / Estado del lote,PDF - Excel
+R-10,Lotes de Engorda,Ganancia de peso por lote,Comparativo peso inicial vs peso actual por lote y por animal,Rancho / Lote / Fecha inicio / Fecha fin,PDF - Excel
+R-11,Lotes de Engorda,Historial de lotes cerrados,Lotes finalizados con resumen de rendimiento,Rancho / Fecha cierre inicio / Fecha cierre fin,PDF - Excel
+R-12,Produccion de Leche,Produccion diaria de leche,Litros producidos por dia por lote y por periodo,Rancho / Lote / Fecha inicio / Fecha fin,PDF - Excel
+R-13,Produccion de Leche,Produccion acumulada por lote,Total producido en la vida del lote lechero,Rancho / Lote,PDF - Excel
+R-14,Produccion de Leche,Produccion por vaca,Rendimiento individual de cada vaca dentro del lote,Rancho / Lote / Arete,PDF - Excel
+R-15,Vacunacion,Lotes de vacunacion aplicados,Campanas realizadas: vacuna fecha y bovinos incluidos,Rancho / Vacuna / Fecha inicio / Fecha fin,PDF - Excel
+R-16,Vacunacion,Historial sanitario por bovino,Todas las vacunas aplicadas a un animal especifico,Rancho / Arete,PDF - Excel
+R-17,Vacunacion,Bovinos sin vacunar,Animales que no han recibido una vacuna especifica en X periodo,Rancho / Vacuna / Periodo,PDF - Excel
+R-18,Venta de Ganado,Ordenes de venta,Ventas realizadas: comprador animales precio y total,Rancho / Fecha inicio / Fecha fin,PDF - Excel
+R-19,Venta de Ganado,Bovinos vendidos,Detalle de animales vendidos con caracteristicas al momento de venta,Rancho / Fecha inicio / Fecha fin,PDF - Excel
+R-20,Personal,Plantilla de personal activo,Lista del personal con puesto fecha de ingreso y datos de contacto,Rancho / Puesto,PDF - Excel
+R-21,Personal,Altas y bajas de personal,Movimientos de personal por periodo,Rancho / Tipo movimiento / Fecha inicio / Fecha fin,PDF - Excel
+R-22,Maquinaria,Historial de mantenimientos,Todos los mantenimientos realizados por maquina y periodo,Rancho / Equipo / Tipo / Fecha inicio / Fecha fin,PDF - Excel
+R-23,Maquinaria,Mantenimientos pendientes,Equipos proximos a mantenimiento o con mantenimiento vencido,Rancho / Equipo,PDF - Excel
+R-24,Maquinaria,Costo de mantenimientos,Gasto acumulado por equipo o por periodo,Rancho / Equipo / Fecha inicio / Fecha fin,PDF - Excel
+R-25,Inventarios,Movimientos de inventario,Entradas y salidas por producto fecha y motivo,Rancho / Producto / Tipo movimiento / Fecha inicio / Fecha fin,PDF - Excel
+R-26,Inventarios,Stock actual,Existencias por producto con alertas de minimos,Rancho / Categoria / Alerta stock,PDF - Excel
+R-27,Inventarios,Consumo por periodo,Productos mas consumidos en un rango de fechas,Rancho / Fecha inicio / Fecha fin,PDF - Excel

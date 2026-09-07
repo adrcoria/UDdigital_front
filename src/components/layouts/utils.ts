@@ -71,13 +71,15 @@ export const menuItems: MenuItemType[] = [
         link: "/administracion/ingresos-egresos",
         roles: [ROLES.SUPER_USER, ROLES.ADMIN, ROLES.CAPTURISTA]
       }
-      ,
-      {
-        label: "Reportes", // SECCIÓN INTEGRADA
-        link: "/administracion/reportes",
-        roles: [ROLES.SUPER_USER]
-      }
     ]
+  },
+  {
+    label: "Reportes",
+    icon: "ph-file-text",
+    id: "sidebarReportes",
+    // Solo Super Usuario y Admin
+    roles: [ROLES.SUPER_USER, ROLES.ADMIN],
+    link: "/reportes"
   },
   {
     label: "Inventarios",

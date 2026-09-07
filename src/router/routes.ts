@@ -177,7 +177,7 @@ const adminRoutes = [
     }
   },
   {
-    path: "/administracion/reportes", // NUEVA RUTA
+    path: "/reportes", // Modulo de reportes (menu padre)
     name: "Reportes",
     // Apunta a la nueva vista que creamos
     component: () => import("@/views/reportes/Reportes.vue"),

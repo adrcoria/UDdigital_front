@@ -118,17 +118,28 @@ const save = async () => {
           />
 
           <v-autocomplete
-            v-if="filteredSubCauses.length > 0"
             v-model="form.deathSubCauseId"
             :items="filteredSubCauses"
             item-title="name"
             item-value="id"
-            label="Subcausa de Muerte"
+            label="Subcausa de Muerte *"
             variant="outlined"
+            :disabled="!form.deathCauseId"
+            :rules="[rules.required]"
             class="mb-2"
-            no-data-text="Sin subcausas registradas"
-            clearable
+            no-data-text="Esta causa no tiene subcausas registradas"
           />
+
+          <v-alert
+            v-if="form.deathCauseId && filteredSubCauses.length === 0"
+            type="warning"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+          >
+            Esta causa no tiene subcausas registradas. Da de alta una en
+            <strong>Catálogos Ganaderos → Subcausas de muerte</strong> para poder continuar.
+          </v-alert>
 
           <v-text-field
             v-model="form.deathComments"

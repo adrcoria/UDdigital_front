@@ -9,6 +9,11 @@ import {
   userService
 } from "@/app/http/httpServiceProvider";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
+import {
+  getMinOperationDate,
+  isPeriodLocked,
+  PERIOD_LOCK_MESSAGE
+} from "@/app/utils/authHelper";
 
 import CreateEditLedgerAccountDialog from "./CreateEditLedgerAccountDialog.vue";
 import CreateEditConceptCategoryDialog from "./CreateEditConceptCategoryDialog.vue";
@@ -120,13 +125,31 @@ const touched = ref({
 const req = (v: any) => !!v || "Obligatorio";
 const reqPositive = (v: any) => (Number(v) > 0) || "Debe ser mayor a 0";
 
+/* ---------- Candado de meses vencidos ---------- */
+// Fecha mínima capturable ("" = sin límite para Super Usuario)
+const minOperationDate = computed(() => getMinOperationDate());
+
+// La operación que se está editando pertenece a un mes ya cerrado
+const isLockedOperation = computed(() => isPeriodLocked(props.operation?.operationDate));
+
+// La fecha capturada en el formulario cae en un mes ya cerrado
+const isLockedDate = computed(() => isPeriodLocked(form.value.operationDate));
+
+const periodLocked = computed(() => isLockedOperation.value || isLockedDate.value);
+
+const notLockedPeriod = (v: any) =>
+  !isPeriodLocked(v) || "Mes cerrado: no puedes registrar en un mes vencido";
+
 const accountRules = computed(() => (touched.value.accountId ? [req] : []));
 const categoryRules = computed(() => (touched.value.categoryId ? [req] : []));
 const conceptRules = computed(() => (touched.value.conceptId ? [req] : []));
 const descriptionRules = computed(() => (touched.value.description ? [req] : []));
 const quantityRules = computed(() => (touched.value.quantity ? [req, reqPositive] : []));
 const amountRules = computed(() => (touched.value.amount ? [req, reqPositive] : []));
-const dateRules = computed(() => (touched.value.operationDate ? [req] : []));
+// La regla del candado siempre está activa: avisa en cuanto se elige la fecha
+const dateRules = computed(() =>
+  touched.value.operationDate ? [req, notLockedPeriod] : [notLockedPeriod]
+);
 const unitRules = computed(() => (touched.value.measurement ? [req] : []));
 const openMenu = (e: MouseEvent) => {
   // Evita que el click cierre el diálogo o dispare cosas raras
@@ -145,7 +168,8 @@ const isFormValid = computed(() => {
     Number(form.value.quantity) > 0 &&
     !!form.value.measurement &&
     Number(form.value.amount) > 0 &&
-    !!form.value.operationDate
+    !!form.value.operationDate &&
+    !periodLocked.value
   );
 });
 
@@ -516,6 +540,11 @@ const save = async () => {
     idResponsible: true
   };
 
+  // Candado de periodo: última barrera antes de pegarle al backend
+  if (periodLocked.value) {
+    return showErrorAlert(PERIOD_LOCK_MESSAGE);
+  }
+
   if (!isFormValid.value) {
     return showErrorAlert("Por favor, completa los campos requeridos.");
   }
@@ -571,6 +600,10 @@ const save = async () => {
       <v-card-title>{{ isEdit ? "Editar operación" : "Registrar operación" }}</v-card-title>
 
       <v-card-text>
+        <v-alert v-if="periodLocked" type="warning" density="compact" class="mb-4" icon="mdi-lock">
+          {{ PERIOD_LOCK_MESSAGE }}
+        </v-alert>
+
         <div class="row">
           <v-autocomplete v-model="form.accountId" label="Cuenta *" :items="accounts" item-title="name" item-value="id"
             :loading="loadingAccounts" :rules="accountRules" @blur="touched.accountId = true"
@@ -689,7 +722,7 @@ const save = async () => {
 
 
         <v-text-field type="date" label="Fecha *" v-model="form.operationDate" :rules="dateRules"
-          @blur="touched.operationDate = true" />
+          :min="minOperationDate || undefined" @blur="touched.operationDate = true" />
 
 
         <v-autocomplete v-model="form.idResponsible" label="Responsable *" :items="users" item-title="name"

@@ -253,10 +253,24 @@ onMounted(getItems);
                           <div class="text-caption text-grey">Nacimiento / Ingreso</div>
                           <div class="text-body-2 mb-1">{{ item.birthDate }} / {{ item.dateAddedToHerd }}</div>
                           <div class="text-caption text-grey">Tipo y Propósito</div>
-                          <div class="text-body-2">{{ item.bovineType?.name || 'S/T' }} - {{ item.bovinePurpose?.name ||
+                          <div class="text-body-2 mb-1">{{ item.bovineType?.name || 'S/T' }} - {{ item.bovinePurpose?.name ||
                             'S/P' }}</div>
                           <div class="text-caption text-grey">Origen</div>
-                          <div class="text-body-2">{{ item.bovineOrigin?.name || 'N/A' }}</div>
+                          <div class="text-body-2 mb-1">{{ item.bovineOrigin?.name || 'N/A' }}</div>
+                          <div class="text-caption text-grey">Estado Reproductivo</div>
+                          <div class="text-body-2 mt-1">
+                            <v-chip
+                              v-if="item.reproductiveStatus"
+                              size="x-small"
+                              color="pink-darken-1"
+                              variant="tonal"
+                              label
+                              class="font-weight-bold"
+                            >
+                              {{ item.reproductiveStatus }}
+                            </v-chip>
+                            <span v-else class="text-grey">N/A</span>
+                          </div>
                         </div>
                       </v-col>
 

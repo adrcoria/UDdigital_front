@@ -11,6 +11,7 @@ export interface UserPayload {
   phone: string;
   roleId: string;
   companyId: string;
+  recuperationEmail?: string;
 }
 
 export default class UsuariosService {

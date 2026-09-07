@@ -194,6 +194,22 @@ watch(dialog, (val) => emit("update:modelValue", val));
                         <v-list-item-subtitle class="text-body-2 text-black font-weight-medium">{{ details.bovinePurpose?.name || 'N/A' }}</v-list-item-subtitle>
                       </v-list-item>
                       <v-list-item class="px-0">
+                        <v-list-item-title class="text-caption text-grey">Estado Reproductivo</v-list-item-title>
+                        <v-list-item-subtitle>
+                          <v-chip
+                            v-if="details.reproductiveStatus"
+                            size="x-small"
+                            color="pink-darken-1"
+                            variant="tonal"
+                            label
+                            class="font-weight-bold mt-1"
+                          >
+                            {{ details.reproductiveStatus }}
+                          </v-chip>
+                          <span v-else class="text-body-2 text-grey">N/A</span>
+                        </v-list-item-subtitle>
+                      </v-list-item>
+                      <v-list-item class="px-0">
                         <v-list-item-title class="text-caption text-grey">Origen</v-list-item-title>
                         <v-list-item-subtitle class="text-body-2 text-black font-weight-medium">{{ details.bovineOrigin?.name || 'N/A' }}</v-list-item-subtitle>
                       </v-list-item>

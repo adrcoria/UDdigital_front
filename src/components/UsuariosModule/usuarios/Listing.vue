@@ -41,6 +41,7 @@ const userToDelete = ref<any | null>(null);
 const headers = [
   { title: "Nombre Completo" },
   { title: "Usuario" },
+  { title: "Correo" },
   { title: "Teléfono" },
   { title: "Empresa" },
   { title: "Rol" },
@@ -192,6 +193,7 @@ watch(page, () => getUsers());
               <div class="font-weight-bold">{{ item.fullName }}</div>
             </td>
             <td>{{ item.mail }}</td>
+            <td>{{ item.recuperationEmail || '---' }}</td>
             <td>{{ item.phone }}</td>
             <td>{{ item.companyName }}</td>
             <td>

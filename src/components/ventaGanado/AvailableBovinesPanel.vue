@@ -22,7 +22,7 @@ const config = ref({
   start: 0,
   end: 0,
   noOfItems: 0,
-  itemsPerPage: 10,
+  itemsPerPage: 100,
 });
 
 const headers = [
@@ -40,12 +40,37 @@ const formatRaces = (raceAssignments: any[]) => {
   return raceAssignments.map((ra: any) => ra.bovineRace?.name || "S/R").join(", ");
 };
 
+/**
+ * Peso vigente para calcular la venta: el último registro de weightLogs y,
+ * si el animal no tiene historial, el netWeight del bovino.
+ */
 const getWeight = (bovine: any): number => {
-  // El bovino puede traer peso en lastWeight, currentWeight o weightKg
-  return bovine.lastWeight ?? bovine.currentWeight ?? bovine.weightKg ?? 0;
+  const logs = bovine?.weightLogs;
+
+  if (Array.isArray(logs) && logs.length > 0) {
+    const latest = [...logs].sort((a: any, b: any) =>
+      String(b.registerDate).localeCompare(String(a.registerDate))
+    )[0];
+    const logWeight = Number(latest?.weight);
+    if (logWeight > 0) return logWeight;
+  }
+
+  return Number(bovine?.netWeight ?? bovine?.birthWeight ?? 0) || 0;
 };
 
+const getRaces = (bovine: any) =>
+  formatRaces(bovine?.raceAssignments || bovine?.bovineRaceAssignments || []);
+
 const isInOrder = (id: string) => props.orderIds.includes(id);
+
+/**
+ * El ganado fallecido no se puede vender.
+ * Si el backend no manda estatus no lo ocultamos, para no esconder registros válidos.
+ */
+const isSellable = (bovine: any) => {
+  const status = String(bovine?.bovineStatus || "").toUpperCase();
+  return status !== "MUERTO" && !bovine?.deathDate;
+};
 
 const onAdd = (bovine: any) => {
   const item: SaleOrderItem = {
@@ -54,7 +79,7 @@ const onAdd = (bovine: any) => {
     siniigaEarTag: bovine.siniigaEarTag || "",
     name: bovine.name || "",
     sex: bovine.sex?.name || bovine.bovineType?.name || "",
-    races: formatRaces(bovine.bovineRaceAssignments || []),
+    races: getRaces(bovine),
     weight: getWeight(bovine),
     saleValue: 0,
   };
@@ -69,8 +94,10 @@ const getBovines = async () => {
       limit: config.value.itemsPerPage,
       search: props.filters?.query || "",
     });
-    tableData.value = response.data.data.list || [];
+    const list = response.data.data.list || [];
+    tableData.value = list.filter(isSellable);
     config.value.noOfItems = response.data.data.total || 0;
+    config.value.end = tableData.value.length;
   } catch {
     showErrorAlert("No se pudo cargar el ganado disponible");
   } finally {
@@ -109,7 +136,7 @@ defineExpose({ refresh: getBovines });
         <td>{{ bovine.siniigaEarTag || "---" }}</td>
         <td>{{ bovine.name || "---" }}</td>
         <td>{{ bovine.sex?.name || bovine.bovineType?.name || "---" }}</td>
-        <td>{{ formatRaces(bovine.bovineRaceAssignments || []) }}</td>
+        <td>{{ getRaces(bovine) }}</td>
         <td>{{ getWeight(bovine) > 0 ? `${getWeight(bovine)} kg` : "---" }}</td>
         <td class="text-center">
           <v-btn

@@ -412,10 +412,11 @@ const save = async () => {
             fatherId: form.value.fatherId,
             motherId: form.value.motherId,
             bovineStatus: form.value.bovineStatus,
-            deathDate: form.value.deathDate,
-            deathCauseId: form.value.deathCauseId,
-            ...(form.value.deathSubCauseId ? { deathSubCauseId: form.value.deathSubCauseId } : {}),
-            deathComments: form.value.deathComments,
+            ...(form.value.bovineStatus === 'MUERTO' ? {
+                deathDate: form.value.deathDate,
+                ...(form.value.deathSubCauseId ? { deathSubCauseId: form.value.deathSubCauseId } : {}),
+                deathComments: form.value.deathComments,
+            } : {}),
             reproductiveStatus: form.value.reproductiveStatus,
             raceAssignments: selectedRaces.value.map((r, i) => ({
                 raceId: r.raceId,

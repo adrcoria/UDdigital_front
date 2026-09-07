@@ -5,7 +5,14 @@ import CreateEditOperationDialog from "./Dialogs/CreateEditOperationDialog.vue";
 import RemoveItemConfirmationDialog from "@/app/common/components/RemoveItemConfirmationDialog.vue";
 import ListMenuWithIcon from "@/app/common/components/ListMenuWithIcon.vue";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
-import { canManageAll, isCapturista } from "@/app/utils/authHelper";
+import {
+  canManageAll,
+  isCapturista,
+  isSuperUser,
+  isPeriodLocked,
+  toDateOnly,
+  PERIOD_LOCK_MESSAGE
+} from "@/app/utils/authHelper";
 
 import {
   ledgerAccountService,
@@ -43,13 +50,17 @@ const getTodayDate = () => {
   return `${year}-${month}-${day}`;
 };
 
-const canDeleteItem = (operationDate: string | Date) => {
-  if (canManageAll()) return true; // Super User y Admin pueden borrar lo que sea
+const canDeleteItem = (operationDate: string | Date | null | undefined) => {
+  if (isSuperUser()) return true; // El Super Usuario ajusta cualquier periodo
+
+  // Candado: los meses vencidos quedan cerrados para Admin y Capturista
+  if (isPeriodLocked(operationDate)) return false;
+
+  if (canManageAll()) return true; // Admin, dentro del mes en curso
 
   if (isCapturista()) {
     const today = getTodayDate(); // "YYYY-MM-DD"
-    const itemDate = new Date(operationDate).toISOString().split('T')[0];
-    return itemDate === today;
+    return toDateOnly(operationDate) === today;
   }
   return false;
 };
@@ -621,6 +632,16 @@ const closeFilesDialog = () => {
 
 
 const confirmDelete = async () => {
+  // Candado de periodo: el menú ya lo oculta, esto evita el borrado por otra vía
+  if (!canDeleteItem(confirmation.value?.operationDate)) {
+    confirmationDialog.value = false;
+    return showErrorAlert(
+      isPeriodLocked(confirmation.value?.operationDate)
+        ? PERIOD_LOCK_MESSAGE
+        : "No tienes permiso para eliminar esta operación"
+    );
+  }
+
   try {
     deleting.value = true;
     await operationsService.deleteOperation(confirmation.value.id);

@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "remove", bovineId: string): void;
+  (e: "weight", bovineId: string, weight: number): void;
   (e: "confirm"): void;
 }>();
 
@@ -46,19 +47,35 @@ const formatCurrency = (val: number) =>
           <v-btn icon="ph-trash" size="x-small" variant="text" color="error" @click="emit('remove', item.bovineId)" />
         </div>
         <div class="text-caption text-medium-emphasis mb-2">
-          {{ item.sex }} · {{ item.races }} · {{ item.weight > 0 ? `${item.weight} kg` : 'Sin peso' }}
+          {{ item.sex }} · {{ item.races }}
         </div>
-        <v-text-field
-          v-model.number="item.saleValue"
-          label="Valor de venta (MXN)"
-          type="number"
-          min="0"
-          step="0.01"
-          density="compact"
-          variant="outlined"
-          hide-details
-          prefix="$"
-        />
+
+        <div class="d-flex ga-3 align-center">
+          <v-text-field
+            :model-value="item.weight"
+            label="Peso (kg)"
+            type="number"
+            min="0"
+            step="0.01"
+            density="compact"
+            variant="outlined"
+            suffix="kg"
+            hide-details
+            style="max-width: 130px;"
+            @update:model-value="(v: any) => emit('weight', item.bovineId, Number(v) || 0)"
+          />
+
+          <!-- Valor de venta: calculado, no capturable -->
+          <div class="flex-grow-1 text-end">
+            <div class="text-caption text-medium-emphasis">Valor de venta</div>
+            <div class="text-subtitle-1 font-weight-bold">
+              {{ formatCurrency(item.saleValue) }}
+            </div>
+            <div v-if="!item.weight" class="text-caption text-medium-emphasis">
+              Captura el peso
+            </div>
+          </div>
+        </div>
       </div>
     </v-card-text>
 

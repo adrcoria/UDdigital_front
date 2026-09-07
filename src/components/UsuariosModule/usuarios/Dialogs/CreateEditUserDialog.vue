@@ -21,6 +21,7 @@ const form = ref({
   phone: "",
   roleId: "",
   companyId: "",
+  recuperationEmail: "",
 });
 
 const touched = ref({
@@ -30,6 +31,7 @@ const touched = ref({
   phone: false,
   roleId: false,
   companyId: false,
+  recuperationEmail: false,
 });
 
 /* ---------- Utilidades ---------- */
@@ -49,6 +51,7 @@ const resetForm = () => {
     phone: "",
     roleId: "",
     companyId: !isSuperUser() ? (getCompanyId() || "") : "",
+    recuperationEmail: "",
   };
   Object.keys(touched.value).forEach(k => touched.value[k as keyof typeof touched.value] = false);
 };
@@ -85,9 +88,12 @@ const loading = ref(false);
 const req = (v: any) => !!v || "Obligatorio";
 const emailRule = (v: string) => (v && v.length > 2) || "Usuario demasiado corto";
 const phoneRule = (v: string) => {
+  if (isEdit.value && !v?.trim()) return true;
   const digits = (v || "").replace(/\D/g, "");
   return digits.length === 10 || "Deben ser 10 dígitos";
 };
+
+const recuperationEmailRule = (v: string) => !v || /.+@.+\..+/.test(v) || "Correo inválido";
 
 const nameRules = computed(() => touched.value.name ? [req] : []);
 const lastNameRules = computed(() => touched.value.lastName ? [req] : []);
@@ -95,15 +101,19 @@ const mailRules = computed(() => touched.value.mail ? [req, emailRule] : []);
 const phoneRules = computed(() => touched.value.phone ? [req, phoneRule] : []);
 const roleRules = computed(() => touched.value.roleId ? [req] : []);
 const companyRules = computed(() => touched.value.companyId ? [req] : []);
+const recuperationEmailRules = computed(() => touched.value.recuperationEmail ? [recuperationEmailRule] : []);
 
 const isFormValid = computed(() => {
   const digits = (form.value.phone || "").replace(/\D/g, "");
+  const phoneValid = isEdit.value
+    ? (!form.value.phone?.trim() || digits.length === 10)
+    : digits.length === 10;
   return !!form.value.name?.trim() &&
     !!form.value.lastName?.trim() &&
     !!form.value.mail?.trim() &&
     !!form.value.roleId &&
     !!form.value.companyId &&
-    digits.length === 10;
+    phoneValid;
 });
 
 /* ---------- Watchers ---------- */
@@ -116,6 +126,7 @@ watch(() => props.user, (u) => {
       phone: formatPhone(u.phone || ""),
       roleId: u.roleId || u.role?.id || "",
       companyId: u.companyId || u.company?.id || "",
+      recuperationEmail: u.recuperationEmail || "",
     };
   } else {
     resetForm();
@@ -134,9 +145,10 @@ const save = async () => {
       name: form.value.name.trim(),
       lastName: form.value.lastName.trim(),
       mail: form.value.mail.trim(),
-      phone: form.value.phone.replace(/\D/g, ""),
+      ...(form.value.phone?.trim() ? { phone: form.value.phone.replace(/\D/g, "") } : {}),
       roleId: form.value.roleId,
       companyId: form.value.companyId,
+      ...(form.value.recuperationEmail?.trim() ? { recuperationEmail: form.value.recuperationEmail.trim() } : {}),
     };
 
     if (!isEdit.value) {
@@ -202,6 +214,15 @@ const save = async () => {
         <v-autocomplete v-model="form.companyId" label="Empresa *" :items="companies" item-title="name"
           item-value="id" :loading="loadingOptions" :rules="companyRules"
           @blur="touched.companyId = true" :disabled="isEdit || !isSuperUser()" clearable variant="filled" />
+
+        <v-text-field
+          v-model="form.recuperationEmail"
+          label="Correo"
+          :rules="recuperationEmailRules"
+          @blur="touched.recuperationEmail = true"
+          placeholder="correo@ejemplo.com"
+          variant="filled"
+        />
       </v-card-text>
 
       <v-card-actions class="pa-4">

@@ -1,22 +1,21 @@
 <script lang="ts" setup>
-import { ref, reactive, shallowRef, onMounted } from "vue";
-import { email } from "@/assets/images/auth/utils";
-import { verifyService, userService } from "@/app/http/httpServiceProvider";
-import { showErrorAlert, showSuccessAlert } from "@/app/services/alertService";
+import { ref, reactive, shallowRef, onMounted, computed } from "vue";
+import { verifyService } from "@/app/http/httpServiceProvider";
+import { showSuccessAlert } from "@/app/services/alertService";
 import router from "@/router";
 import { useRoute } from "vue-router";
-import { on } from "events";
+
 const route = useRoute();
 
-// Estado general
+const isFirstLogin = computed(() => !!route.params.mail);
+
 const errorMsg = ref("");
-const successMsg = ref("");
 const loading = ref(false);
-const isSubmitted = ref(false);
 const step = ref(1);
 const otp = shallowRef('');
+const showPassword = ref(false);
+const showPasswordConfirm = ref(false);
 
-// Datos del formulario
 const formData = reactive({
   email: "",
   password: "",
@@ -24,254 +23,394 @@ const formData = reactive({
   token: "",
 });
 
-// Reglas de validación
 const emailRules = [
   (v: string) => !!v || 'El correo es requerido',
   (v: string) => /.+@.+\..+/.test(v) || 'El correo debe ser válido',
 ];
 
 const otpRules = [
-  (v: string) => {
-    console.log("Validando OTP - Regla requerido, valor:", v);
-    return !!v || 'El código es requerido';
-  },
-  (v: string) => {
-    console.log("Validando OTP - Regla longitud, valor:", v);
-    return (v && v.length === 6) || 'El código debe tener 6 dígitos';
-  },
+  (v: string) => !!v || 'El código es requerido',
+  (v: string) => (v && v.length === 6) || 'El código debe tener 6 dígitos',
 ];
-
-
-const passwordConfirmRules = [
-  (v: string) => !!v || 'La confirmación de la contraseña es requerida',
-  (v: string) => v === formData.password || 'Las contraseñas no coinciden',
-];
-
-// Referencias a los formularios
-const formEmailRef = ref<any>(null);
-const formOtpRef = ref<any>(null);
-const formPasswordRef = ref<any>(null);
-
-// Función para enviar el email (Step 1)
-const onReset = async () => {
-  if (formEmailRef.value) {
-    const validationResult = await formEmailRef.value.validate();
-    if (!validationResult.valid) {
-      console.log('El formulario de email no es válido. No se avanza.');
-      return;
-    }
-  }
-  try {
-    loading.value = true;
-    errorMsg.value = "";
-    successMsg.value = "";
-    isSubmitted.value = true;
-    const response = await verifyService.generateOtp({
-      media: formData.email,
-      type: "MAIL"
-    });
-    console.log(response);
-    if ([200, 201].includes(response.data.statusCode)) {
-      step.value = 2;
-    }
-    else {
-      showErrorAlert(response.data.data, 123);
-    }
-  } catch (error: any) {
-    errorMsg.value = error.message;
-  } finally {
-    loading.value = false;
-  }
-};
-
-
-
-// Función para validar el OTP (Step 2)
-const onValidarOtp = async () => {
-  console.log("Valor actual de OTP:", otp.value);
-  // Validación manual para OTP
-  if (!otp.value || otp.value.length !== 6) {
-    errorMsg.value = "El código debe tener 6 dígitos";
-    return;
-  }
-  if (formOtpRef.value) {
-    const validationResult = await formOtpRef.value.validate();
-    if (!validationResult.valid) {
-      return;
-    }
-  }
-  try {
-    loading.value = true;
-    errorMsg.value = "";
-    successMsg.value = "";
-    isSubmitted.value = true;
-    const response = await verifyService.validateOtp({
-      otp: otp.value,
-      media: formData.email,
-      type: "MAIL"
-    });
-    if ([200, 201].includes(response.data.statusCode)) {
-      step.value = 3;
-      formData.token = response.data.data;
-    }
-    else {
-      showErrorAlert(response.data.data, 124);
-    }
-  } catch (error: any) {
-    errorMsg.value = error.message;
-  } finally {
-    loading.value = false;
-  }
-};
-
-
-// Función para restablecer la contraseña (Step 3)
-const onResetPassword = async () => {
-  if (formPasswordRef.value) {
-    const validationResult = await formPasswordRef.value.validate();
-    console.log('Resultado de validación contraseña:', validationResult);
-    if (!validationResult.valid) {
-      console.log('El formulario de contraseña no es válido. No se procede.');
-      return;
-    }
-  }
-  try {
-    loading.value = true;
-    errorMsg.value = "";
-    successMsg.value = "";
-    isSubmitted.value = true;
-    // Lógica final para restablecer la contraseña
-    const response = await userService.resetPassword({
-      password: formData.password,
-      token: formData.token,
-    });
-    if ([200, 201].includes(response.data.statusCode)) {
-      showSuccessAlert("Contraseña restablecida con éxito");
-      localStorage.clear();
-      sessionStorage.clear();
-      router.push({ path: "/signin" });
-    }
-    else {
-      showErrorAlert(response.data.data, 125);
-    }
-  } catch (error: any) {
-    errorMsg.value = error.message;
-  } finally {
-    loading.value = false;
-  }
-};
-
-onMounted(() => {
-  if (route.params.mail) {
-    formData.email = route.params.mail as string;
-    onReset();
-  }
-});
 
 const passwordRules = [
   (v: string) => !!v || 'La contraseña es requerida',
   (v: string) => v.length >= 8 || 'Debe tener al menos 8 caracteres',
   (v: string) =>
-    /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/.test(v) ||
-    'Debe incluir al menos una mayúscula, un número y un carácter especial',
+    /^(?=.*[A-Z])(?=.*\d)/.test(v) ||
+    'Debe incluir al menos una mayúscula y un número',
 ];
 
+const passwordConfirmRules = [
+  (v: string) => !!v || 'La confirmación es requerida',
+  (v: string) => v === formData.password || 'Las contraseñas no coinciden',
+];
 
+const formEmailRef = ref<any>(null);
+const formOtpRef = ref<any>(null);
+const formPasswordRef = ref<any>(null);
+
+const onReset = async () => {
+  if (formEmailRef.value) {
+    const { valid } = await formEmailRef.value.validate();
+    if (!valid) return;
+  }
+  try {
+    loading.value = true;
+    errorMsg.value = "";
+    const response = await verifyService.sendOtp(formData.email);
+    if ([200, 201].includes(response.status ?? response.data?.statusCode)) {
+      step.value = 2;
+    } else {
+      errorMsg.value = response.data?.message || "Error al enviar el código";
+    }
+  } catch (error: any) {
+    errorMsg.value = error.response?.data?.message || error.message || "Error al enviar el código";
+  } finally {
+    loading.value = false;
+  }
+};
+
+const onValidarOtp = async () => {
+  if (!otp.value || otp.value.length !== 6) {
+    errorMsg.value = "El código debe tener 6 dígitos";
+    return;
+  }
+  try {
+    loading.value = true;
+    errorMsg.value = "";
+    const response = await verifyService.validateOtp(formData.email, otp.value);
+    if ([200, 201].includes(response.status ?? response.data?.statusCode)) {
+      formData.token = response.data?.data?.resetToken ?? response.data?.data ?? response.data?.resetToken;
+      step.value = 3;
+    } else {
+      errorMsg.value = response.data?.message || "Código inválido o expirado";
+    }
+  } catch (error: any) {
+    errorMsg.value = error.response?.data?.message || error.message || "Código inválido o expirado";
+  } finally {
+    loading.value = false;
+  }
+};
+
+const onResetPassword = async () => {
+  if (formPasswordRef.value) {
+    const { valid } = await formPasswordRef.value.validate();
+    if (!valid) return;
+  }
+  try {
+    loading.value = true;
+    errorMsg.value = "";
+    const response = await verifyService.resetPassword(formData.token, formData.password);
+    if ([200, 201].includes(response.status ?? response.data?.statusCode)) {
+      showSuccessAlert("Contraseña establecida con éxito");
+      localStorage.clear();
+      sessionStorage.clear();
+      router.push({ path: "/signin" });
+    } else {
+      errorMsg.value = response.data?.message || "Error al restablecer la contraseña";
+    }
+  } catch (error: any) {
+    errorMsg.value = error.response?.data?.message || error.message || "Error al restablecer la contraseña";
+  } finally {
+    loading.value = false;
+  }
+};
+
+onMounted(() => {});
 </script>
 
 <template>
-  <div class="h-100 d-flex align-center justify-center">
-    <div class="w-100">
-      <v-card-title class="text-center">
-        <h5 class="text-h6 font-weight-bold">¿Olvidaste tu contraseña?</h5>
-        <div class="text-muted mt-1 font-weight-regular">
-          No te preocupes, te ayudaremos a recuperarla
+  <div class="auth-viewport">
+    <div class="login-grid">
+
+      <!-- Lado visual -->
+      <div class="visual-side">
+        <div class="gradient-overlay"></div>
+        <div class="dots-overlay"></div>
+
+        <div class="text-center z-10 px-6">
+          <v-icon :icon="step === 3 ? 'ph-lock-key' : step === 2 ? 'ph-shield-check' : 'ph-envelope'" size="64"
+            color="white" class="mb-5 opacity-80" />
+          <h1 class="text-h4 font-weight-bold mb-3 title-shadow">
+            {{ step === 1
+              ? (isFirstLogin ? 'Primer inicio de sesión' : 'Recupera tu acceso')
+              : step === 2 ? 'Verifica tu identidad'
+              : (isFirstLogin ? 'Crea tu contraseña' : 'Nueva contraseña') }}
+          </h1>
+          <p class="text-body-1 opacity-70 px-4">
+            {{ step === 1
+              ? (isFirstLogin
+                  ? 'Te enviaremos un código para que puedas establecer tu contraseña personal'
+                  : 'Te enviaremos un código de verificación a tu correo electrónico')
+              : step === 2
+                ? 'Ingresa el código que recibiste en tu bandeja de entrada'
+                : (isFirstLogin
+                    ? 'Elige una contraseña segura para activar tu acceso al sistema'
+                    : 'Crea una contraseña segura para proteger tu cuenta') }}
+          </p>
+
+          <div class="step-dots mt-8">
+            <span :class="['dot', step >= 1 ? 'active' : '']"></span>
+            <span :class="['dot', step >= 2 ? 'active' : '']"></span>
+            <span :class="['dot', step >= 3 ? 'active' : '']"></span>
+          </div>
         </div>
-      </v-card-title>
-      <v-card-text class="mt-5">
-        <v-row justify="center" class="align-center">
+
+        <div class="visual-footer">
+          <small>
+            <a href="https://leonix.com.mx" target="_blank" class="text-white text-decoration-none">
+              © 2025. Desarrollado por <b class="brand-green">Leonix</b>
+            </a>
+          </small>
+        </div>
+      </div>
+
+      <!-- Lado formulario -->
+      <div class="form-side">
+        <div class="form-inner">
+
           <!-- Step 1: Email -->
-          <v-col cols="12" lg="8" v-if="step === 1">
-            <v-img :src="email" alt="" height="80" />
-            <v-alert v-if="successMsg" class="my-3" color="success" variant="tonal" density="compact">
-              {{ successMsg }}
-            </v-alert>
-            <v-alert v-if="errorMsg" class="mb-3" color="danger" variant="tonal" density="compact">
-              {{ errorMsg }}
-            </v-alert>
-            <v-alert color="warning" variant="tonal" class="my-4 ps-8">
-              Ingresa tu correo electrónico vinculado al sistema
-            </v-alert>
+          <template v-if="step === 1">
+            <div class="text-center mb-8">
+              <h2 class="text-h4 font-weight-bold color-primary">
+                {{ isFirstLogin ? '¡Bienvenido al sistema!' : '¿Olvidaste tu contraseña?' }}
+              </h2>
+              <p class="text-body-2 text-grey-darken-1 mt-2">
+                {{ isFirstLogin
+                  ? 'Es tu primer acceso. Te enviaremos un código para establecer tu contraseña'
+                  : 'Ingresa tu correo vinculado al sistema' }}
+              </p>
+            </div>
+            <v-alert v-if="errorMsg" type="error" variant="tonal" density="compact" class="mb-4">{{ errorMsg
+              }}</v-alert>
             <v-form ref="formEmailRef">
-              <div class="font-weight-medium mb-1">
-                Email <i class="ph-asterisk ph-xs text-danger" />
-              </div>
-              <v-text-field id="email-field" variant="solo" density="compact" v-model="formData.email"
-                :rules="emailRules" placeholder="Ingresa tu correo" />
-              <v-btn color="primary" :loading="loading" block class="mt-4" @click="onReset" small>
-                Recuperar contraseña
+              <label class="field-label">Email <span class="text-error">*</span></label>
+              <v-text-field v-model="formData.email" :rules="emailRules" variant="outlined"
+                placeholder="correo@ejemplo.com" prepend-inner-icon="ph-envelope" color="primary" />
+              <v-btn color="primary" :loading="loading" block size="x-large"
+                class="mt-4 font-weight-bold text-none login-btn" elevation="4" @click="onReset">
+                Enviar código
               </v-btn>
             </v-form>
-            <div class="text-center mt-5 d-flex align-center justify-center">
-              Olvídalo, ya recuerdo mi contraseña...
-              <v-btn to="/signin" variant="text" color="primary"
-                class="font-weight-bold text-decoration-underline pa-0">
+            <div class="text-center mt-6">
+              <span class="text-grey-darken-1 text-body-2">Ya recuerdo mi contraseña... </span>
+              <v-btn to="/signin" variant="text" color="primary" size="small" class="font-weight-bold pa-0 text-none">
                 Regresar
               </v-btn>
             </div>
-          </v-col>
+          </template>
 
           <!-- Step 2: OTP -->
-          <v-col cols="12" lg="8" v-if="step === 2">
-            <v-alert color="warning" variant="tonal" class="my-4 ps-8">
-              Ingresa el código que hemos enviado a tu correo
-            </v-alert>
-            <!-- Alerta para mostrar errores en OTP -->
-            <v-alert v-if="errorMsg" class="mb-3" color="danger" variant="tonal" density="compact">
-              {{ errorMsg }}
-            </v-alert>
+          <template v-if="step === 2">
+            <div class="text-center mb-8">
+              <h2 class="text-h4 font-weight-bold color-primary">Código de verificación</h2>
+              <p class="text-body-2 text-grey-darken-1 mt-2">
+                Enviamos un código a <b>{{ formData.email }}</b>
+              </p>
+            </div>
+            <v-alert v-if="errorMsg" type="error" variant="tonal" density="compact" class="mb-4">{{ errorMsg
+              }}</v-alert>
             <v-form ref="formOtpRef">
-              <div class="font-weight-medium mb-1">
-                Código <i class="ph-asterisk ph-xs text-danger" />
-              </div>
-              <v-otp-input v-model="otp" type="password" variant="solo" :rules="otpRules" />
-              <v-btn color="primary" :loading="loading" block class="mt-4" @click="onValidarOtp" small>
-                Validar
+              <label class="field-label">Código <span class="text-error">*</span></label>
+              <v-otp-input v-model="otp" variant="outlined" :rules="otpRules" />
+              <v-btn color="primary" :loading="loading" block size="x-large"
+                class="mt-6 font-weight-bold text-none login-btn" elevation="4" @click="onValidarOtp">
+                Verificar código
               </v-btn>
             </v-form>
-            <div class="text-center mt-5 d-flex align-center justify-center">
-              ¿No recibiste el código?
-              <v-btn variant="text" color="primary" class="font-weight-bold text-decoration-underline pa-0"
-                @click="onReset">
+            <div class="text-center mt-6">
+              <span class="text-grey-darken-1 text-body-2">¿No recibiste el código? </span>
+              <v-btn variant="text" color="primary" size="small" class="font-weight-bold pa-0 text-none"
+                @click="onReset" :loading="loading">
                 Reenviar
               </v-btn>
             </div>
-          </v-col>
+          </template>
 
           <!-- Step 3: Nueva contraseña -->
-          <v-col cols="12" lg="8" v-if="step === 3">
-            <v-alert color="warning" variant="tonal" class="my-4 ps-8">
-              Define tu nueva contraseña
-            </v-alert>
+          <template v-if="step === 3">
+            <div class="text-center mb-8">
+              <h2 class="text-h4 font-weight-bold color-primary">
+                {{ isFirstLogin ? 'Activa tu cuenta' : 'Nueva contraseña' }}
+              </h2>
+              <p class="text-body-2 text-grey-darken-1 mt-2">
+                {{ isFirstLogin
+                  ? 'Crea tu contraseña personal. Mínimo 8 caracteres, una mayúscula, un número y un símbolo'
+                  : 'Mínimo 8 caracteres, una mayúscula, un número y un símbolo' }}
+              </p>
+            </div>
+            <v-alert v-if="errorMsg" type="error" variant="tonal" density="compact" class="mb-4">{{ errorMsg
+              }}</v-alert>
             <v-form ref="formPasswordRef">
-              <div class="font-weight-medium mb-1">
-                Nueva contraseña <i class="ph-asterisk ph-xs text-danger" />
-              </div>
-              <v-text-field id="password-field" variant="solo" density="compact" v-model="formData.password"
-                :rules="passwordRules" type="password" placeholder="Ingresa tu contraseña" />
-              <div class="font-weight-medium mb-1">
-                Confirmar contraseña <i class="ph-asterisk ph-xs text-danger" />
-              </div>
-              <v-text-field id="password-confirm-field" variant="solo" density="compact"
-                v-model="formData.passwordConfirm" :rules="passwordConfirmRules" type="password"
-                placeholder="Confirma tu contraseña" />
-              <v-btn :loading="loading" color="primary" block class="mt-4" @click="onResetPassword" small>
-                Recuperar contraseña
+              <label class="field-label">Nueva contraseña <span class="text-error">*</span></label>
+              <v-text-field v-model="formData.password" :rules="passwordRules" variant="outlined"
+                :type="showPassword ? 'text' : 'password'" placeholder="••••••••" prepend-inner-icon="ph-lock"
+                :append-inner-icon="showPassword ? 'ph-eye-slash' : 'ph-eye'"
+                @click:append-inner="showPassword = !showPassword" color="primary" />
+              <label class="field-label">Confirmar contraseña <span class="text-error">*</span></label>
+              <v-text-field v-model="formData.passwordConfirm" :rules="passwordConfirmRules" variant="outlined"
+                :type="showPasswordConfirm ? 'text' : 'password'" placeholder="••••••••" prepend-inner-icon="ph-lock"
+                :append-inner-icon="showPasswordConfirm ? 'ph-eye-slash' : 'ph-eye'"
+                @click:append-inner="showPasswordConfirm = !showPasswordConfirm" color="primary" />
+              <v-btn :loading="loading" color="primary" block size="x-large"
+                class="mt-2 font-weight-bold text-none login-btn" elevation="4" @click="onResetPassword">
+                Guardar contraseña
               </v-btn>
             </v-form>
-          </v-col>
-        </v-row>
-      </v-card-text>
+          </template>
+
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
+
+<style scoped>
+.auth-viewport {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  background-color: white;
+  z-index: 9999;
+}
+
+.login-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  height: 100%;
+}
+
+.visual-side {
+  position: relative;
+  background-color: #0d0d0d;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  overflow: hidden;
+}
+
+.gradient-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 15% 15%, rgba(25, 118, 210, 0.3) 0%, transparent 55%),
+    radial-gradient(circle at 85% 85%, rgba(0, 200, 83, 0.1) 0%, transparent 55%),
+    linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+}
+
+.dots-overlay {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1.5px, transparent 1.5px);
+  background-size: 35px 35px;
+  z-index: 1;
+}
+
+.form-side {
+  background: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+}
+
+.form-inner {
+  width: 100%;
+  max-width: 420px;
+}
+
+.field-label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 5px;
+  font-size: 0.85rem;
+  color: #333;
+}
+
+.step-dots {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transition: background 0.3s;
+}
+
+.dot.active {
+  background: white;
+}
+
+.color-primary {
+  color: #1976D2;
+}
+
+.brand-green {
+  color: #00c853;
+}
+
+.title-shadow {
+  text-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+}
+
+.z-10 {
+  z-index: 10;
+}
+
+.visual-footer {
+  position: absolute;
+  bottom: 25px;
+  z-index: 10;
+  opacity: 0.8;
+}
+
+.login-btn {
+  border-radius: 10px;
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 960px) {
+  .auth-viewport {
+    position: relative;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .login-grid {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .visual-side {
+    width: 100%;
+    padding: 60px 20px;
+    height: auto;
+    min-height: 260px;
+  }
+
+  .form-side {
+    width: 100%;
+    padding: 40px 24px;
+  }
+
+  .visual-footer {
+    position: relative;
+    bottom: 0;
+    margin-top: 30px;
+  }
+}
+</style>

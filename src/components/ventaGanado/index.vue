@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, reactive, computed, onMounted } from "vue";
+import { ref, reactive, computed, watch, onMounted } from "vue";
 import AvailableBovinesPanel from "./AvailableBovinesPanel.vue";
 import SaleOrderPanel from "./SaleOrderPanel.vue";
 import {
@@ -7,6 +7,7 @@ import {
   ledgerAccountService,
   conceptService,
   usuariosService,
+  parameterService,
 } from "@/app/http/httpServiceProvider";
 import { showErrorAlert, showSuccessAlert, showConfirmAlert } from "@/app/services/alertService";
 import { localDateStr } from "@/app/utils/date";
@@ -51,6 +52,47 @@ const loadCatalogs = async () => {
   }
 };
 
+/* ──────────────────── Precio por kilo ──────────────────── */
+/**
+ * El valor de venta se calcula peso × precio por kilo.
+ * El precio se precarga de un parámetro global (GET /parameters) y se puede
+ * ajustar durante la venta.
+ *
+ * El parámetro es "Valor Venta" de GET /parameters.
+ * OJO: "Factor Venta" es otro concepto y no debe usarse aquí, por eso el
+ * nombre se compara exacto.
+ */
+const PRICE_PER_KG_PARAM = "VALOR VENTA";
+
+const pricePerKg = ref(0);
+const defaultPricePerKg = ref(0);
+const priceParamFound = ref(false);
+const loadingPrice = ref(false);
+
+const loadPricePerKg = async () => {
+  try {
+    loadingPrice.value = true;
+    const res = await parameterService.getParameters({ page: 1, limit: 100 });
+    const list = res.data?.data?.list ?? res.data?.data ?? [];
+    const param = list.find(
+      (p: any) => String(p?.name || "").trim().toUpperCase() === PRICE_PER_KG_PARAM
+    );
+
+    priceParamFound.value = Number(param?.value) > 0;
+    defaultPricePerKg.value = priceParamFound.value ? Number(param.value) : 0;
+  } catch {
+    // Sin parámetro no inventamos precio: se captura a mano
+    priceParamFound.value = false;
+    defaultPricePerKg.value = 0;
+  } finally {
+    pricePerKg.value = defaultPricePerKg.value;
+    loadingPrice.value = false;
+  }
+};
+
+const calcSaleValue = (weight: number) =>
+  Number(((weight || 0) * (pricePerKg.value || 0)).toFixed(2));
+
 /* ──────────────────── Refs ──────────────────── */
 const availablePanel = ref<InstanceType<typeof AvailableBovinesPanel> | null>(null);
 
@@ -61,7 +103,28 @@ const submitting = ref(false);
 
 const onAddBovine = (item: SaleOrderItem) => {
   if (orderIds.value.includes(item.bovineId)) return;
-  orderItems.value.push({ ...item, saleValue: 0 });
+  orderItems.value.push({ ...item, saleValue: calcSaleValue(item.weight) });
+};
+
+// Al ajustar el precio por kilo se recalcula toda la orden
+watch(pricePerKg, () => {
+  orderItems.value.forEach((item) => {
+    item.saleValue = calcSaleValue(item.weight);
+  });
+});
+
+/**
+ * Corrección del peso durante la venta: recalcula el valor con el precio por kilo.
+ * El peso corregido solo aplica a esta venta, no modifica al bovino.
+ *
+ * El guard de igualdad evita trabajo de más cuando el campo reemite el mismo peso.
+ */
+const onWeightChange = (bovineId: string, weight: number) => {
+  const item = orderItems.value.find((i) => i.bovineId === bovineId);
+  if (!item || item.weight === weight) return;
+
+  item.weight = weight;
+  item.saleValue = calcSaleValue(weight);
 };
 
 const onRemoveBovine = (bovineId: string) => {
@@ -116,6 +179,7 @@ const onConfirmSale = async () => {
     idConcept.value = "";
     idResponsible.value = "";
     operationDate.value = localDateStr();
+    pricePerKg.value = defaultPricePerKg.value;
     availablePanel.value?.refresh();
   } catch {
     showErrorAlert("No se pudo registrar la venta");
@@ -124,7 +188,10 @@ const onConfirmSale = async () => {
   }
 };
 
-onMounted(loadCatalogs);
+onMounted(() => {
+  loadCatalogs();
+  loadPricePerKg();
+});
 </script>
 
 <template>
@@ -207,6 +274,43 @@ onMounted(loadCatalogs);
             />
           </v-col>
         </v-row>
+
+        <v-row dense class="mt-1">
+          <v-col cols="12" sm="3">
+            <v-text-field
+              v-model.number="pricePerKg"
+              label="Precio por kilo (MXN) *"
+              type="number"
+              min="0"
+              step="0.01"
+              prefix="$"
+              density="compact"
+              variant="outlined"
+              :loading="loadingPrice"
+              :hint="priceParamFound
+                ? `Precargado del parámetro Valor Venta: $${defaultPricePerKg}`
+                : 'Captura manual'"
+              persistent-hint
+            />
+          </v-col>
+
+          <v-col cols="12" sm="9" class="d-flex align-center">
+            <v-alert
+              v-if="!loadingPrice && !priceParamFound"
+              type="warning"
+              variant="tonal"
+              density="compact"
+              class="w-100"
+            >
+              El parámetro <strong>Valor Venta</strong> no está configurado: captura el precio
+              por kilo manualmente para esta venta.
+            </v-alert>
+
+            <span v-else class="text-caption text-medium-emphasis">
+              Al cambiar el precio por kilo o el peso de un animal, la orden se recalcula sola.
+            </span>
+          </v-col>
+        </v-row>
       </v-card-text>
     </v-card>
 
@@ -253,6 +357,7 @@ onMounted(loadCatalogs);
           :submitting="submitting"
           :is-form-ready="isFormReady"
           @remove="onRemoveBovine"
+          @weight="onWeightChange"
           @confirm="onConfirmSale"
         />
       </v-col>
