@@ -64,6 +64,13 @@ coverage/
 cypress/screenshots/
 cypress/videos/
 
+# Playwright (E2E)
+test-results/
+playwright-report/
+playwright/.cache/
+# El archivo de ejemplo si se versiona; las credenciales reales no
+!e2e/.env.e2e.example
+
 # ===============================
 # TypeScript
 # ===============================

@@ -176,8 +176,8 @@ const rules = {
     noFuture: (v: any) => !v || v <= today.value || "No se permiten fechas futuras",
     notBeforeBirth: (v: any) => !v || !form.value.birthDate || v >= form.value.birthDate || "No puede ser anterior a la fecha de nacimiento",
     purchaseRequired: (v: any) => {
-        const origin = lists.value.origins.find((o: any) => o.id === form.value.bovineOriginId);
-        if (origin?.name.toUpperCase() === 'COMPRA') return !!v || "El valor de compra es obligatorio";
+        // El catálogo guarda "COMPRA " con espacio al final: sin trim la regla nunca aplica
+        if (isCompra.value) return !!v || "El valor de compra es obligatorio";
         return true;
     },
     exact12: (v: any) => (v && v.length === 12) || "Debe tener exactamente 12 dígitos",
@@ -216,9 +216,9 @@ watch(isReproductiveAge, (reproductive) => {
 watch(() => form.value.bovineOriginId, (newId) => {
     if (isEditing.value) return;
     const origin = lists.value.origins.find((o: any) => o.id === newId);
-    const originName = origin?.name.toUpperCase() || "";
-    // El valor de compra se recalcula: 0 si el origen deja de ser COMPRA
-    form.value.purchaseValue = originName === 'COMPRA' ? calcPurchaseValue() : 0;
+    const originName = origin?.name.toUpperCase().trim() || "";
+    // calcPurchaseValue ya devuelve 0 cuando el origen no es COMPRA
+    form.value.purchaseValue = calcPurchaseValue();
     if (!originName.includes('HATO')) {
         form.value.fatherId = null;
         form.value.motherId = null;
