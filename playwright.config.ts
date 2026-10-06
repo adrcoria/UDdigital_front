@@ -31,4 +31,20 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
+  /**
+   * Levanta la app si no está corriendo, y la reutiliza si ya lo está.
+   * Sin esto, con el servidor caído TODAS las pruebas fallan en milisegundos
+   * y el reporte parece un sistema roto cuando solo faltaba `npm run dev`.
+   *
+   * Se espera por puerto y no por URL: el dev server responde 404 a la
+   * petición de sondeo aunque la app funcione.
+   */
+  webServer: {
+    command: "npm run dev",
+    port: Number(new URL(baseURL).port || 3000),
+    reuseExistingServer: true,
+    timeout: 180_000,
+    stdout: "ignore",
+    stderr: "pipe",
+  },
 });

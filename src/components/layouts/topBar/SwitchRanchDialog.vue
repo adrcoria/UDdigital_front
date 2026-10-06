@@ -2,10 +2,12 @@
 import { ref, computed, watch } from "vue";
 import { accountService, companyService } from "@/app/http/httpServiceProvider";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
+import { useSessionStore } from "@/store/session";
 
 const props = defineProps<{ modelValue: boolean }>();
 const emit = defineEmits(["update:modelValue"]);
 
+const session = useSessionStore();
 
 const loading = ref(false);
 const switching = ref(false);
@@ -13,16 +15,8 @@ const companies = ref<any[]>([]);
 const selectedCompanyId = ref<string>("");
 const formRef = ref(null);
 
-const sessionUser = (() => {
-  try { return JSON.parse(sessionStorage.getItem("user") || localStorage.getItem("user") || "{}"); }
-  catch { return {}; }
-})();
-
-const currentCompany = computed(() =>
-  sessionUser?.company?.name
-    ? `${sessionUser.company.name}${sessionUser.company.code ? ` (${sessionUser.company.code})` : ""}`
-    : "Sin empresa"
-);
+// Desde el store: así el encabezado refleja el rancho activo sin recargar
+const currentCompany = computed(() => session.companyLabel);
 
 const getRefreshToken = () =>
   localStorage.getItem("refreshToken") || sessionStorage.getItem("refreshToken") || "";
@@ -32,7 +26,7 @@ const loadCompanies = async () => {
     loading.value = true;
     const res = await companyService.getCompanies();
     companies.value = (res.data?.data || [])
-      .filter((c: any) => c.id !== sessionUser?.company?.id)
+      .filter((c: any) => c.id !== session.companyId)
       .map((c: any) => ({ title: `${c.name} (${c.code})`, value: c.id, raw: c }));
   } catch {
     showErrorAlert("Error al cargar los ranchos");
@@ -74,9 +68,13 @@ const handleSwitch = async () => {
     storage.setItem("refreshToken", data.refreshToken);
     if (updatedUser) storage.setItem("user", JSON.stringify(updatedUser));
 
-    showSuccessAlert("Rancho cambiado correctamente");
+    // Cambiar la empresa del store remonta la vista actual: la pantalla en la
+    // que está el usuario vuelve a pedir sus datos con el token nuevo, sin
+    // recargar la página ni perder la navegación.
+    session.setCompany(selectedCompanyData?.raw ?? null);
+
+    showSuccessAlert(`Rancho cambiado a ${session.companyLabel}`);
     emit("update:modelValue", false);
-    setTimeout(() => { window.location.href = "/"; }, 1000);
   } catch {
     showErrorAlert("No se pudo cambiar el rancho");
   } finally {

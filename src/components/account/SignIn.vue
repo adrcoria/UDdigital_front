@@ -3,12 +3,14 @@ import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { accountService } from "@/app/http/httpServiceProvider";
 import { showErrorAlert, showSuccessAlert } from "@/app/services/alertService";
+import { useSessionStore } from "@/store/session";
 import CryptoJS from "crypto-js";
 
 /**
  * ESTADO Y CONFIGURACIÓN
  */
 const router = useRouter();
+const session = useSessionStore();
 const SESSION_EXPIRED_FLAG = "sessionExpired";
 const SECRET_KEY = "UGDigital2025$$";
 
@@ -70,6 +72,9 @@ const onSignIn = async () => {
         localStorage.setItem("password", encryptedPass);
         localStorage.setItem("companyCode", encryptedCode);
       }
+
+      // El login navega sin recargar: el store debe tomar la empresa recién guardada
+      session.sync();
 
       showSuccessAlert(`¡Bienvenido!`);
       router.push({ path: "/" });

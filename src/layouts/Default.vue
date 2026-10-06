@@ -3,9 +3,11 @@ import RightSideBar from "@/components/layouts/rightSidebar/index.vue";
 import LeftSideBar from "@/components/layouts/leftSideBar/index.vue";
 import TopBar from "@/components/layouts/topBar/index.vue";
 import { useLayoutStore } from "@/store/app";
+import { useSessionStore } from "@/store/session";
 import { computed } from "vue";
 import { LAYOUTS } from "@/app/const";
 const state = useLayoutStore();
+const session = useSessionStore();
 
 const isHorizontal = computed(() => {
   return state.layoutType === LAYOUTS.HORIZONTAL;
@@ -26,7 +28,9 @@ const isHorizontal = computed(() => {
           :fluid="!isHorizontal"
           class="main-container"
         >
-          <router-view />
+          <!-- La llave es la empresa activa: al cambiar de rancho la vista
+               se remonta y vuelve a pedir sus datos, sin recargar la página -->
+          <router-view :key="session.companyId" />
         </v-container>
       </v-main>
       <v-footer app class="footer">
