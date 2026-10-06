@@ -135,6 +135,42 @@ export const openMenu = async (page: Page, menu: string, submenu?: string) => {
   }
 };
 
+/**
+ * Cliente de API autenticado con la sesion del navegador.
+ * Sirve para preparar y limpiar datos sin pasar por la interfaz: lo que se
+ * valida por UI es el flujo bajo prueba, no el armado del escenario.
+ */
+export const apiClient = async (page: Page) => {
+  const token = await page.evaluate(
+    () => localStorage.getItem("accessToken") || sessionStorage.getItem("accessToken")
+  );
+  const headers = { Authorization: `Bearer ${token}` };
+
+  const unwrap = async (response: any, accion: string) => {
+    if (response.status() >= 400) {
+      throw new Error(`${accion} respondio ${response.status()}: ${await response.text()}`);
+    }
+    return response.json();
+  };
+
+  return {
+    async get(path: string) {
+      return unwrap(await page.request.get(`${env.apiURL}${path}`, { headers }), `GET ${path}`);
+    },
+    async post(path: string, data: any) {
+      return unwrap(
+        await page.request.post(`${env.apiURL}${path}`, { headers, data }),
+        `POST ${path}`
+      );
+    },
+    /** No lanza: se usa para limpiar y no debe tumbar la prueba */
+    async remove(path: string) {
+      const response = await page.request.delete(`${env.apiURL}${path}`, { headers });
+      return response.status() < 400;
+    },
+  };
+};
+
 /** Marca de tiempo para que los datos de prueba sean identificables y unicos */
 export const stamp = () => {
   const d = new Date();
