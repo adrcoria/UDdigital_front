@@ -6,8 +6,6 @@ import { buildReportFileName, downloadBlob, triggerDownload } from "../exportUti
 import type { ReportConfig } from "../types";
 import {
   PROJECTION_YEARS,
-  SEND_PENDING_CONTRACT_PARAMS,
-  HERD_CATEGORIES,
   ASSUMPTIONS,
   ASSUMPTION_GROUPS,
   ROW_SECTIONS,
@@ -20,12 +18,12 @@ const props = defineProps<{ config: ReportConfig }>();
 /* ── Estado ──────────────────────────────────────────────────────────────── */
 const loading = ref(false);
 const format = ref<"json" | "excel" | "pdf">("json");
-const showAdvanced = ref(false);
 const companies = ref<any[]>([]);
 const idCompany = ref<string | null>(null);
 
 const years = ref<Record<string, any>[]>([]);
 const generated = ref(false);
+const resultCompany = ref("");
 
 // Previsualizacion de PDF (mismo comportamiento que el resto de reportes)
 const pdfDialog = ref(false);
@@ -33,32 +31,12 @@ const pdfUrl = ref("");
 const pdfFileName = ref("");
 
 /* ── Formulario ──────────────────────────────────────────────────────────── */
-const initialHerd = ref<Record<string, number>>(
-  Object.fromEntries(HERD_CATEGORIES.map((c) => [c.key, c.initialDefault]))
-);
-
-const uaCoefficients = ref<Record<string, number>>(
-  Object.fromEntries(HERD_CATEGORIES.map((c) => [c.key, c.uaDefault]))
-);
-
 const assumptions = ref<Record<string, number | null>>(
   Object.fromEntries(ASSUMPTIONS.map((a) => [a.key, a.default]))
 );
 
-// Compra de vaquillas al parto: anio 0 a 10 (anio 0 = 20 por defecto)
-const heiferPurchases = ref<number[]>(
-  Array.from({ length: PROJECTION_YEARS + 1 }, (_, i) => (i === 0 ? 20 : 0))
-);
-
-// Venta de vaquillas: anio 1 a 10
-const heiferSales = ref<number[]>(Array.from({ length: PROJECTION_YEARS }, () => 0));
-
 const resetForm = () => {
-  initialHerd.value = Object.fromEntries(HERD_CATEGORIES.map((c) => [c.key, c.initialDefault]));
-  uaCoefficients.value = Object.fromEntries(HERD_CATEGORIES.map((c) => [c.key, c.uaDefault]));
   assumptions.value = Object.fromEntries(ASSUMPTIONS.map((a) => [a.key, a.default]));
-  heiferPurchases.value = Array.from({ length: PROJECTION_YEARS + 1 }, (_, i) => (i === 0 ? 20 : 0));
-  heiferSales.value = Array.from({ length: PROJECTION_YEARS }, () => 0);
 };
 
 const assumptionsByGroup = (group: string) => ASSUMPTIONS.filter((a) => a.group === group);
@@ -68,7 +46,7 @@ const errors = computed(() => {
   const list: string[] = [];
   const a = assumptions.value;
 
-  if (!idCompany.value) list.push("Selecciona la empresa / unidad de produccion.");
+  // idCompany es opcional: sin el, el backend usa la empresa del usuario autenticado
 
   for (const def of ASSUMPTIONS) {
     const v = a[def.key];
@@ -100,19 +78,6 @@ const errors = computed(() => {
     list.push(`Leche para crias + para venta deben sumar 100% (suman ${milkSum}%).`);
   }
 
-  for (const c of HERD_CATEGORIES) {
-    const v = Number(initialHerd.value[c.key]);
-    if (!Number.isInteger(v) || v < 0) {
-      list.push(`${c.label}: debe ser un entero mayor o igual a 0.`);
-    }
-  }
-
-  const badPurchase = heiferPurchases.value.some((v) => !Number.isInteger(Number(v)) || Number(v) < 0);
-  if (badPurchase) list.push("Compra de vaquillas al parto: enteros mayores o iguales a 0.");
-
-  const badSale = heiferSales.value.some((v) => !Number.isInteger(Number(v)) || Number(v) < 0);
-  if (badSale) list.push("Venta de vaquillas: enteros mayores o iguales a 0.");
-
   return list;
 });
 
@@ -122,45 +87,43 @@ const isValid = computed(() => errors.value.length === 0);
 const fieldError = (label: string) =>
   errors.value.filter((e) => e.startsWith(`${label}:`)).map((e) => e.replace(`${label}: `, ""));
 
-/* ── Mapeo de params (porcentaje → fraccion) ─────────────────────────────── */
+/* ── Params del endpoint ─────────────────────────────────────────────────── */
 const buildParams = () => {
-  const params: Record<string, any> = { idCompany: idCompany.value };
+  const params: Record<string, any> = {};
 
+  // Sin empresa seleccionada el backend usa la del usuario autenticado
+  if (idCompany.value) params.idCompany = idCompany.value;
+
+  // Los porcentajes viajan como entero (85 = 85%), tal cual los captura el usuario
   for (const def of ASSUMPTIONS) {
-    const raw = Number(assumptions.value[def.key]);
-    params[def.param] = def.isPercentage ? raw / 100 : raw;
-  }
-
-  /**
-   * PENDIENTE DE CONTRATO: estado inicial, compras/ventas manuales y
-   * coeficientes U.A. Los nombres son tentativos — confirmar con backend.
-   * Ver la nota completa en ./config.ts (SEND_PENDING_CONTRACT_PARAMS).
-   */
-  if (SEND_PENDING_CONTRACT_PARAMS) {
-    for (const c of HERD_CATEGORIES) {
-      params[`inicial${c.key.charAt(0).toUpperCase()}${c.key.slice(1)}`] =
-        Number(initialHerd.value[c.key]);
-      params[`coefUA${c.key.charAt(0).toUpperCase()}${c.key.slice(1)}`] =
-        Number(uaCoefficients.value[c.key]);
-    }
-    // Series por anio: anio 0..10 y anio 1..10, separadas por coma
-    params.compraVaquillasAlParto = heiferPurchases.value.map(Number).join(",");
-    params.ventaVaquillas = heiferSales.value.map(Number).join(",");
+    params[def.param] = Number(assumptions.value[def.key]);
   }
 
   return params;
 };
 
 /* ── Respuesta ───────────────────────────────────────────────────────────── */
+/**
+ * El endpoint separa la situacion actual de las proyecciones:
+ *   { companyName, currentComposition: {...}, projections: [{ year, composition, ... }] }
+ *
+ * Se uniforma el anio 0 con la misma forma que las proyecciones para que la
+ * matriz lea todas las columnas con las mismas rutas.
+ */
 const normalizeYears = (res: any): Record<string, any>[] => {
   const payload = res?.data?.data ?? res?.data;
-  const list =
-    payload?.years ??
-    payload?.data?.years ??
-    (Array.isArray(payload) ? payload : []);
+  if (!payload) return [];
 
-  if (!Array.isArray(list)) return [];
-  return [...list].sort((a, b) => Number(a?.year ?? 0) - Number(b?.year ?? 0));
+  const rows: Record<string, any>[] = [];
+
+  if (payload.currentComposition) {
+    rows.push({ year: 0, composition: payload.currentComposition });
+  }
+
+  const projections = payload.projections ?? payload.years ?? [];
+  if (Array.isArray(projections)) rows.push(...projections);
+
+  return rows.sort((a, b) => Number(a?.year ?? 0) - Number(b?.year ?? 0));
 };
 
 const yearLabel = (year: any) => (Number(year) === 0 ? "Sit. Actual" : `Anio ${year}`);
@@ -169,16 +132,26 @@ const cellValue = (row: Record<string, any>, keys: string[]) => pickValue(row, k
 
 const isNegative = (value: any) => Number(value) < 0;
 
-// Filas que el response no trajo: sirven para cuadrar el contrato con backend
-const unmatchedRows = computed(() => {
-  const first = years.value[0];
-  if (!first) return [];
-  return ROW_SECTIONS.flatMap((s) => s.rows)
-    .filter((r) => pickValue(first, r.keys) === undefined)
-    .map((r) => r.label);
-});
+// Filas que ningun anio trajo: sirven para detectar cambios en el contrato.
+// Se evalua contra todos los anios porque el anio 0 solo trae composicion.
+const unmatchedRows = computed(() =>
+  ROW_SECTIONS.flatMap((s) => s.rows)
+    .filter((r) => years.value.every((y) => pickValue(y, r.keys) === undefined))
+    .map((r) => r.label)
+);
 
-const receivedKeys = computed(() => Object.keys(years.value[0] ?? {}));
+const flattenKeys = (obj: any, prefix = ""): string[] => {
+  if (!obj || typeof obj !== "object") return [];
+  return Object.entries(obj).flatMap(([k, v]) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? flattenKeys(v, `${prefix}${k}.`)
+      : [`${prefix}${k}`]
+  );
+};
+
+const receivedKeys = computed(() =>
+  flattenKeys(years.value.find((y) => Number(y.year) > 0) ?? years.value[0] ?? {})
+);
 
 /* ── Acciones ────────────────────────────────────────────────────────────── */
 const closePdfDialog = () => {
@@ -211,6 +184,7 @@ const generate = async () => {
     }
 
     years.value = normalizeYears(res);
+    resultCompany.value = res?.data?.data?.companyName ?? "";
     generated.value = true;
 
     if (!years.value.length) showErrorAlert("El reporte no devolvio proyeccion");
@@ -272,37 +246,18 @@ onMounted(async () => {
         :items="companies"
         item-title="name"
         item-value="id"
-        label="Empresa / Unidad de produccion *"
+        label="Empresa / Unidad de produccion"
+        hint="El hato inicial se toma del inventario de esta empresa. Vacio = la empresa del usuario."
+        persistent-hint
         variant="outlined"
         density="compact"
         prepend-inner-icon="ph-buildings"
         no-data-text="Sin datos"
-        hide-details
+        clearable
         class="mb-5"
       />
 
-      <!-- A · Estado inicial -->
-      <div class="text-caption font-weight-black text-uppercase text-grey-darken-2 mb-2">
-        <v-icon size="16" class="mr-1">ph-paw-print</v-icon>
-        Estado inicial del hato (situacion actual)
-      </div>
-      <v-row dense class="mb-4">
-        <v-col v-for="c in HERD_CATEGORIES" :key="c.key" cols="6" sm="4" md="3">
-          <v-text-field
-            v-model.number="initialHerd[c.key]"
-            :label="c.label"
-            type="number"
-            min="0"
-            step="1"
-            variant="outlined"
-            density="compact"
-            :error-messages="fieldError(c.label)"
-            hide-details="auto"
-          />
-        </v-col>
-      </v-row>
-
-      <!-- C · Parametros tecnicos -->
+      <!-- Parametros tecnicos -->
       <template v-for="g in ASSUMPTION_GROUPS" :key="g.value">
         <div class="text-caption font-weight-black text-uppercase text-grey-darken-2 mb-2">
           <v-icon size="16" class="mr-1">{{ g.icon }}</v-icon>{{ g.label }}
@@ -320,83 +275,13 @@ onMounted(async () => {
               variant="outlined"
               density="compact"
               :error-messages="fieldError(a.label)"
+              :hint="a.hint"
+              :persistent-hint="!!a.hint"
               hide-details="auto"
             />
           </v-col>
         </v-row>
       </template>
-
-      <!-- B · Compras y ventas manuales -->
-      <div class="text-caption font-weight-black text-uppercase text-grey-darken-2 mb-2">
-        <v-icon size="16" class="mr-1">ph-shopping-cart</v-icon>
-        Compras y ventas manuales por anio
-      </div>
-      <div class="border rounded mb-2 pa-3 bg-grey-lighten-5">
-        <div class="text-caption text-medium-emphasis mb-2">
-          Compra de vaquillas al parto — la compra de sementales la calcula el sistema
-        </div>
-        <v-row dense class="mb-3">
-          <v-col v-for="(_, i) in heiferPurchases" :key="`buy-${i}`" cols="4" sm="3" md="1">
-            <v-text-field
-              v-model.number="heiferPurchases[i]"
-              :label="i === 0 ? 'Sit. Actual' : `Anio ${i}`"
-              type="number"
-              min="0"
-              step="1"
-              variant="outlined"
-              density="compact"
-              hide-details
-              bg-color="white"
-            />
-          </v-col>
-        </v-row>
-
-        <div class="text-caption text-medium-emphasis mb-2">Venta de vaquillas</div>
-        <v-row dense>
-          <v-col v-for="(_, i) in heiferSales" :key="`sell-${i}`" cols="4" sm="3" md="1">
-            <v-text-field
-              v-model.number="heiferSales[i]"
-              :label="`Anio ${i + 1}`"
-              type="number"
-              min="0"
-              step="1"
-              variant="outlined"
-              density="compact"
-              hide-details
-              bg-color="white"
-            />
-          </v-col>
-        </v-row>
-      </div>
-
-      <!-- D · Coeficientes U.A. (avanzado) -->
-      <v-expansion-panels v-model="showAdvanced" variant="accordion" class="mb-2">
-        <v-expansion-panel>
-          <v-expansion-panel-title class="text-caption font-weight-bold text-uppercase">
-            <v-icon size="16" class="mr-2">ph-sliders</v-icon>
-            Avanzado · Coeficientes Unidad Animal
-          </v-expansion-panel-title>
-          <v-expansion-panel-text>
-            <div class="text-caption text-medium-emphasis mb-3">
-              Constantes del modelo. Cambiarlas altera las unidades animal y la superficie requerida.
-            </div>
-            <v-row dense>
-              <v-col v-for="c in HERD_CATEGORIES" :key="`ua-${c.key}`" cols="6" sm="4" md="3">
-                <v-text-field
-                  v-model.number="uaCoefficients[c.key]"
-                  :label="c.label"
-                  type="number"
-                  min="0"
-                  step="0.05"
-                  variant="outlined"
-                  density="compact"
-                  hide-details
-                />
-              </v-col>
-            </v-row>
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-      </v-expansion-panels>
     </div>
 
     <!-- Errores + accion -->
@@ -449,7 +334,7 @@ onMounted(async () => {
       >
         <v-icon size="48" class="mb-2">ph-chart-line-up</v-icon>
         <div class="text-caption text-grey-darken-1">
-          Captura los datos y genera la proyeccion a {{ PROJECTION_YEARS }} anios
+          Ajusta los supuestos y genera la proyeccion a {{ PROJECTION_YEARS }} anios
         </div>
       </div>
 
@@ -467,6 +352,10 @@ onMounted(async () => {
             Llaves recibidas: {{ receivedKeys.join(", ") }}
           </div>
         </v-alert>
+
+        <div v-if="resultCompany" class="px-4 pt-4 text-caption font-weight-bold text-grey-darken-2">
+          <v-icon size="16" class="mr-1">ph-buildings</v-icon>{{ resultCompany }}
+        </div>
 
         <div class="pa-4" style="overflow-x: auto;">
           <v-table density="compact" class="matrix">

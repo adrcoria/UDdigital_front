@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { ref, watch, computed, nextTick } from "vue";
 import { bovineService, liveStockService, parameterService } from "@/app/http/httpServiceProvider";
+import { PARAMETER_NAMES } from "@/app/http/services/parameterService";
 import { showSuccessAlert, showErrorAlert } from "@/app/services/alertService";
 import { localDateStr } from "@/app/utils/date";
 
@@ -16,6 +17,8 @@ const isEditing = ref(false); // Flag para el Overlay de preparación
 const today = computed(() => localDateStr());
 
 const factorVenta = ref(0);
+// Precio por kilo con el que se calcula el valor de compra
+const precioPorKilo = ref(0);
 
 const lists = ref<any>({
     sex: [], races: [], types: [], purposes: [], origins: [], owners: [], deathCauses: [], deathSubCauses: []
@@ -151,6 +154,16 @@ const isCompra = computed(() => {
     return origin?.name.toUpperCase().trim() === 'COMPRA';
 });
 
+/**
+ * Valor de compra = peso neto x precio por kilo.
+ * Solo aplica cuando el origen es COMPRA; en cualquier otro origen es 0.
+ */
+const calcPurchaseValue = () => {
+    if (!isCompra.value) return 0;
+    const weight = Number(form.value.netWeight) || 0;
+    return Number((weight * (precioPorKilo.value || 0)).toFixed(2));
+};
+
 const isHato = computed(() => {
     if (!form.value.bovineOriginId || !lists.value.origins.length) return false;
     const origin = lists.value.origins.find((o: any) => o.id === form.value.bovineOriginId);
@@ -176,6 +189,7 @@ const rules = {
 watch(() => form.value.netWeight, (v) => {
     form.value.birthWeight = Number(v || 0);
     form.value.saleValue = Number(v || 0) * (factorVenta.value || 0);
+    form.value.purchaseValue = calcPurchaseValue();
 });
 
 watch(() => form.value.birthDate, () => {
@@ -203,7 +217,8 @@ watch(() => form.value.bovineOriginId, (newId) => {
     if (isEditing.value) return;
     const origin = lists.value.origins.find((o: any) => o.id === newId);
     const originName = origin?.name.toUpperCase() || "";
-    if (originName !== 'COMPRA') form.value.purchaseValue = 0;
+    // El valor de compra se recalcula: 0 si el origen deja de ser COMPRA
+    form.value.purchaseValue = originName === 'COMPRA' ? calcPurchaseValue() : 0;
     if (!originName.includes('HATO')) {
         form.value.fatherId = null;
         form.value.motherId = null;
@@ -261,8 +276,15 @@ const loadData = async () => {
         ]);
 
         const paramsList = resParams.data?.data || [];
-        const factorParam = paramsList.find((p: any) => p.name === 'Factor Venta');
-        factorVenta.value = factorParam ? Number(factorParam.value) : 8;
+        const findParam = (name: string, fallback: number) => {
+            const target = name.trim().toUpperCase();
+            const found = paramsList.find((p: any) => String(p?.name || '').trim().toUpperCase() === target);
+            const value = Number(found?.value);
+            return Number.isFinite(value) && value > 0 ? value : fallback;
+        };
+
+        factorVenta.value = findParam(PARAMETER_NAMES.FACTOR_VENTA, 8);
+        precioPorKilo.value = findParam(PARAMETER_NAMES.PRECIO_POR_KILO, 8);
 
         lists.value = { sex, races: race, types: type, purposes: purpose, origins: origin, owners: owner, deathCauses: death, deathSubCauses: deathSub };
 
@@ -528,7 +550,9 @@ const removeRace = (index: number) => selectedRaces.value.splice(index, 1);
 
                         <v-col cols="12" v-if="isCompra">
                             <v-text-field label="Valor de Compra *" type="number" v-model.number="form.purchaseValue"
-                                :rules="[rules.purchaseRequired]" variant="outlined" prefix="$" color="success" />
+                                :rules="[rules.purchaseRequired]" variant="outlined" prefix="$" color="success"
+                                readonly bg-color="grey-lighten-4"
+                                :hint="`Calculado: peso neto x $${precioPorKilo} por kilo`" persistent-hint />
                         </v-col>
 
                         <v-col cols="12" v-if="isHato">

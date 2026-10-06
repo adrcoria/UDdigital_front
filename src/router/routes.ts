@@ -86,6 +86,16 @@ const configRoutes = [
     }
   },
   {
+    path: "/configuraciones/parametros",
+    name: "Parametros",
+    component: () => import("@/views/parametros/Parametros.vue"),
+    meta: {
+      title: "Parámetros generales",
+      authRequired: true,
+      layout: DefaultLayout
+    }
+  },
+  {
     path: "/configuraciones/rancheros",
     name: "Rancheros",
     component: () => import("@/views/rancheros/Rancheros.vue"),

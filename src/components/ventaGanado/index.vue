@@ -9,6 +9,10 @@ import {
   usuariosService,
   parameterService,
 } from "@/app/http/httpServiceProvider";
+import { PARAMETER_NAMES, PARAMETER_LABELS } from "@/app/http/services/parameterService";
+
+// Nombre de negocio del parámetro, no la llave del API
+const priceParamLabel = PARAMETER_LABELS[PARAMETER_NAMES.PRECIO_POR_KILO];
 import { showErrorAlert, showSuccessAlert, showConfirmAlert } from "@/app/services/alertService";
 import { localDateStr } from "@/app/utils/date";
 import { SALE_TYPES } from "./types";
@@ -55,15 +59,9 @@ const loadCatalogs = async () => {
 /* ──────────────────── Precio por kilo ──────────────────── */
 /**
  * El valor de venta se calcula peso × precio por kilo.
- * El precio se precarga de un parámetro global (GET /parameters) y se puede
- * ajustar durante la venta.
- *
- * El parámetro es "Valor Venta" de GET /parameters.
- * OJO: "Factor Venta" es otro concepto y no debe usarse aquí, por eso el
- * nombre se compara exacto.
+ * El precio se precarga del parámetro global de precio por kilo
+ * (Configuraciones → Parámetros generales) y se puede ajustar durante la venta.
  */
-const PRICE_PER_KG_PARAM = "VALOR VENTA";
-
 const pricePerKg = ref(0);
 const defaultPricePerKg = ref(0);
 const priceParamFound = ref(false);
@@ -72,18 +70,11 @@ const loadingPrice = ref(false);
 const loadPricePerKg = async () => {
   try {
     loadingPrice.value = true;
-    const res = await parameterService.getParameters({ page: 1, limit: 100 });
-    const list = res.data?.data?.list ?? res.data?.data ?? [];
-    const param = list.find(
-      (p: any) => String(p?.name || "").trim().toUpperCase() === PRICE_PER_KG_PARAM
-    );
+    const value = await parameterService.getParameterValue(PARAMETER_NAMES.PRECIO_POR_KILO, 0);
 
-    priceParamFound.value = Number(param?.value) > 0;
-    defaultPricePerKg.value = priceParamFound.value ? Number(param.value) : 0;
-  } catch {
     // Sin parámetro no inventamos precio: se captura a mano
-    priceParamFound.value = false;
-    defaultPricePerKg.value = 0;
+    priceParamFound.value = value > 0;
+    defaultPricePerKg.value = value;
   } finally {
     pricePerKg.value = defaultPricePerKg.value;
     loadingPrice.value = false;
@@ -288,7 +279,7 @@ onMounted(() => {
               variant="outlined"
               :loading="loadingPrice"
               :hint="priceParamFound
-                ? `Precargado del parámetro Valor Venta: $${defaultPricePerKg}`
+                ? `Precargado del parámetro ${priceParamLabel}: $${defaultPricePerKg}`
                 : 'Captura manual'"
               persistent-hint
             />
@@ -302,8 +293,8 @@ onMounted(() => {
               density="compact"
               class="w-100"
             >
-              El parámetro <strong>Valor Venta</strong> no está configurado: captura el precio
-              por kilo manualmente para esta venta.
+              El parámetro <strong>{{ priceParamLabel }}</strong> no está configurado:
+              captura el precio por kilo manualmente para esta venta.
             </v-alert>
 
             <span v-else class="text-caption text-medium-emphasis">

@@ -9,56 +9,30 @@
 export const PROJECTION_YEARS = 10;
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * PENDIENTE DE CONTRATO CON BACKEND
+ * CONTRATO DEL ENDPOINT
  *
- * El endpoint documentado (GET /reports/herd-development) solo expone los
- * supuestos tecnicos como query params. Pero el modelo tambien parte del
- * estado inicial del hato (celdas amarillas D11:D18), de las compras/ventas
- * manuales por anio (filas 23 y 32) y de los coeficientes U.A. (C11:C18).
+ * GET /reports/herd-development recibe UNICAMENTE los parametros de abajo.
+ * El estado inicial del hato (situacion actual) NO se captura: el backend lo
+ * deriva del inventario de la empresa (idCompany). Si idCompany se omite, usa
+ * la empresa del usuario autenticado.
  *
- * Los nombres de abajo son TENTATIVOS: hay que confirmarlos con el backend.
- * Si el endpoint valida con whitelist (forbidNonWhitelisted), un param
- * desconocido responde 400 y el reporte no genera. En ese caso pon
- * SEND_PENDING_CONTRACT_PARAMS en false: el reporte correra solo con los
- * supuestos confirmados, usando el inventario que el backend derive de
- * idCompany, mientras se acuerdan los nombres definitivos.
+ * Los porcentajes viajan como ENTEROS (85 = 85%), no como fraccion.
  * ───────────────────────────────────────────────────────────────────────────── */
-export const SEND_PENDING_CONTRACT_PARAMS = true;
 
-/** Categorias del hato: estado inicial (col. D) + coeficiente U.A. (col. C) */
-export interface HerdCategory {
-  /** Llave del formulario y sufijo del query param del estado inicial */
-  key: string;
-  label: string;
-  /** Coeficiente Unidad Animal fijo del modelo */
-  uaDefault: number;
-  /** Cabezas iniciales por defecto (situacion actual del Excel) */
-  initialDefault: number;
-}
-
-export const HERD_CATEGORIES: HerdCategory[] = [
-  { key: "vacas",       label: "Vacas",                uaDefault: 1.0,  initialDefault: 85 },
-  { key: "vaquillas23", label: "Vaquillas (2-3 anios)", uaDefault: 0.9,  initialDefault: 0 },
-  { key: "vaquillas12", label: "Vaquillas (1-2 anios)", uaDefault: 0.7,  initialDefault: 0 },
-  { key: "becerras",    label: "Becerras",             uaDefault: 0.3,  initialDefault: 0 },
-  { key: "becerros",    label: "Becerros",             uaDefault: 0.3,  initialDefault: 0 },
-  { key: "toretes",     label: "Toretes (1-2 anios)",   uaDefault: 0.7,  initialDefault: 0 },
-  { key: "novillos",    label: "Novillos (2-3 anios)",  uaDefault: 0.9,  initialDefault: 0 },
-  { key: "sementales",  label: "Sementales",           uaDefault: 1.25, initialDefault: 0 },
-];
-
-/** Supuestos tecnicos: se capturan en porcentaje entero y se envian como fraccion */
+/** Supuestos tecnicos del modelo: son todos los parametros del endpoint */
 export interface AssumptionDef {
   key: string;
   /** Nombre del query param en el endpoint */
   param: string;
   label: string;
-  /** true = el usuario captura 85 y se envia 0.85 */
+  /** Solo afecta la presentacion (sufijo %) y el rango valido 0-100 */
   isPercentage: boolean;
   default: number | null;
   min?: number;
   max?: number;
   group: "reproduccion" | "mortalidad" | "leche" | "terreno";
+  /** Nota al pie del campo */
+  hint?: string;
 }
 
 export const ASSUMPTIONS: AssumptionDef[] = [
@@ -74,7 +48,11 @@ export const ASSUMPTIONS: AssumptionDef[] = [
   { key: "diasLactancia",       param: "diasLactanciaAnio",              label: "Dias de lactancia/anio",          isPercentage: false, default: 210, min: 1, max: 365, group: "leche" },
   { key: "lecheParaCrias",      param: "lecheParaCriasPorcentaje",       label: "Leche para crias (%)",           isPercentage: true,  default: 20,  group: "leche" },
   { key: "lecheParaVenta",      param: "lecheParaVentaPorcentaje",       label: "Leche para venta (%)",           isPercentage: true,  default: 80,  group: "leche" },
-  { key: "hectareasPorUA",      param: "hectareasPorUA",                 label: "Hectareas por Unidad Animal",    isPercentage: false, default: null, min: 0, group: "terreno" },
+  {
+    key: "hectareasPorUA", param: "hectareasPorUA", label: "Hectareas por Unidad Animal",
+    isPercentage: false, default: 0.76, min: 0, group: "terreno",
+    hint: "Coeficiente de agostadero (ha por U.A.)",
+  },
 ];
 
 export const ASSUMPTION_GROUPS = [
@@ -85,8 +63,14 @@ export const ASSUMPTION_GROUPS = [
 ] as const;
 
 /* ── Filas de la matriz de resultado ─────────────────────────────────────────
- * `keys` lista las llaves candidatas del response, en orden de preferencia:
- * el contrato exacto esta por confirmarse, asi que se aceptan variantes.
+ * El response trae la situacion actual y las proyecciones por separado:
+ *
+ *   data.currentComposition        -> anio 0 (solo composicion)
+ *   data.projections[]             -> anios 1..10, con subgrupos:
+ *     { year, composition, purchases, mortality, sales, milkProduction }
+ *
+ * normalizeYears() uniforma el anio 0 como { year: 0, composition: {...} },
+ * asi que `keys` usa rutas con punto sobre esa estructura.
  * ─────────────────────────────────────────────────────────────────────────── */
 export type CellFormat = "heads" | "liters" | "hectares";
 
@@ -107,51 +91,51 @@ export const ROW_SECTIONS: RowSection[] = [
   {
     title: "Composicion del hato",
     rows: [
-      { label: "Vacas",                            keys: ["vacas"], format: "heads" },
-      { label: "Vaquillas (2-3 anios)",             keys: ["vaquillas23", "vaquillas2a3", "vaquillas_2_3"], format: "heads" },
-      { label: "Vaquillas (1-2 anios)",             keys: ["vaquillas12", "vaquillas1a2", "vaquillas_1_2"], format: "heads" },
-      { label: "Becerras",                         keys: ["becerras"], format: "heads" },
-      { label: "Becerros",                         keys: ["becerros"], format: "heads" },
-      { label: "Toretes (1-2 anios)",               keys: ["toretes", "toretes12", "toretes1a2"], format: "heads" },
-      { label: "Novillos (2-3 anios)",              keys: ["novillos", "novillos23", "novillos2a3"], format: "heads" },
-      { label: "Sementales",                       keys: ["sementales"], format: "heads" },
-      { label: "Total de cabezas",                 keys: ["totalCabezas", "totalHeads"], format: "heads", emphasis: true },
-      { label: "Unidades animal por anio",          keys: ["unidadesAnimal", "animalUnits"], format: "heads", emphasis: true },
-      { label: "Superficie terreno requerida (ha)", keys: ["superficieHa", "superficieHectareas"], format: "hectares", emphasis: true },
+      { label: "Vacas",                             keys: ["composition.vacas"], format: "heads" },
+      { label: "Vaquillas (2-3 anios)",             keys: ["composition.vaquillas2_3"], format: "heads" },
+      { label: "Vaquillas (1-2 anios)",             keys: ["composition.vaquillas1_2"], format: "heads" },
+      { label: "Becerras",                          keys: ["composition.becerras"], format: "heads" },
+      { label: "Becerros",                          keys: ["composition.becerros"], format: "heads" },
+      { label: "Toretes (1-2 anios)",               keys: ["composition.toretes1_2"], format: "heads" },
+      { label: "Novillos (2-3 anios)",              keys: ["composition.novillos2_3"], format: "heads" },
+      { label: "Sementales",                        keys: ["composition.sementales"], format: "heads" },
+      { label: "Total de cabezas",                  keys: ["composition.totalCabezas"], format: "heads", emphasis: true },
+      { label: "Unidades animal por anio",          keys: ["composition.unidadesAnimalAnio"], format: "heads", emphasis: true },
+      { label: "Superficie terreno requerida (ha)", keys: ["composition.superficieRequerida"], format: "hectares", emphasis: true },
     ],
   },
   {
     title: "Compra de ganado",
     rows: [
-      { label: "Vaquillas al parto", keys: ["compraVaquillasAlParto", "compraVaqParto", "compraVaquillasParto"], format: "heads" },
-      { label: "Sementales",         keys: ["compraSementales"], format: "heads" },
+      { label: "Vaquillas al parto", keys: ["purchases.vaquillasAlParto"], format: "heads" },
+      { label: "Sementales",         keys: ["purchases.sementales"], format: "heads" },
     ],
   },
   {
     title: "Mortalidad",
     rows: [
-      { label: "Vacas",      keys: ["mortalidadVacas", "mortVacas"], format: "heads" },
-      { label: "Becerras",   keys: ["mortalidadBecerras", "mortBecerras"], format: "heads" },
-      { label: "Becerros",   keys: ["mortalidadBecerros", "mortBecerros"], format: "heads" },
-      { label: "Sementales", keys: ["mortalidadSementales", "mortSementales"], format: "heads" },
+      { label: "Vacas",      keys: ["mortality.vacas"], format: "heads" },
+      { label: "Becerras",   keys: ["mortality.becerras"], format: "heads" },
+      { label: "Becerros",   keys: ["mortality.becerros"], format: "heads" },
+      { label: "Sementales", keys: ["mortality.sementales"], format: "heads" },
     ],
   },
   {
     title: "Ventas",
     rows: [
-      { label: "Vacas de desecho",       keys: ["ventaVacasDesecho"], format: "heads" },
-      { label: "Vaquillas",              keys: ["ventaVaquillas"], format: "heads" },
-      { label: "Becerros engordados",    keys: ["becerrosEngordados", "ventaBecerrosEngordados"], format: "heads" },
-      { label: "Sementales de desecho",  keys: ["ventaSementalesDesecho"], format: "heads" },
-      { label: "Leche litros (para venta)", keys: ["lecheParaVenta", "ventaLecheLitros"], format: "liters" },
+      { label: "Vacas de desecho",          keys: ["sales.vacasDesecho"], format: "heads" },
+      { label: "Vaquillas",                 keys: ["sales.vaquillas"], format: "heads" },
+      { label: "Becerros engordados",       keys: ["sales.becerros"], format: "heads" },
+      { label: "Sementales de desecho",     keys: ["sales.sementalesDesecho"], format: "heads" },
+      { label: "Leche litros (para venta)", keys: ["milkProduction.lecheParaVenta"], format: "liters" },
     ],
   },
   {
     title: "Produccion de leche",
     rows: [
-      { label: "Total leche anio (lts)", keys: ["totalLecheAnio", "totalLecheAno", "totalMilkYear"], format: "liters", emphasis: true },
-      { label: "Leche para crias",      keys: ["lecheParaCrias"], format: "liters" },
-      { label: "Leche para venta",      keys: ["lecheParaVenta"], format: "liters" },
+      { label: "Total leche anio (lts)", keys: ["milkProduction.totalLecheAnio"], format: "liters", emphasis: true },
+      { label: "Leche para crias",       keys: ["milkProduction.lecheParaCrias"], format: "liters" },
+      { label: "Leche para venta",       keys: ["milkProduction.lecheParaVenta"], format: "liters" },
     ],
   },
 ];
@@ -174,10 +158,17 @@ export const formatCell = (value: any, format: CellFormat): string => {
   return num.toLocaleString("es-MX", { maximumFractionDigits: 2 });
 };
 
-/** Primera llave presente en el registro; undefined si el response no la trae */
+/**
+ * Primera llave presente en el registro; undefined si el response no la trae.
+ * Acepta rutas con punto ("composition.vacas").
+ */
 export const pickValue = (row: Record<string, any>, keys: string[]) => {
   for (const key of keys) {
-    if (row?.[key] !== undefined && row?.[key] !== null) return row[key];
+    const value = key
+      .split(".")
+      .reduce<any>((acc, part) => (acc === null || acc === undefined ? undefined : acc[part]), row);
+
+    if (value !== undefined && value !== null) return value;
   }
   return undefined;
 };

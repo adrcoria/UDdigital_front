@@ -56,6 +56,11 @@ export const menuItems: MenuItemType[] = [
         label: "Rancheros",
         link: "/configuraciones/rancheros",
         roles: [ROLES.SUPER_USER, ROLES.ADMIN]
+      },
+      {
+        label: "Parámetros generales",
+        link: "/configuraciones/parametros",
+        roles: [ROLES.SUPER_USER, ROLES.ADMIN]
       }
     ]
   },
