@@ -1,18 +1,27 @@
 <script lang="ts">
 import { brandsList } from "@/components/layouts/utils";
+import { logout } from "@/app/utils/authHelper";
 
 export default {
   data() {
     return {
       brandsList,
       userName: "Usuario", // valor por defecto
-      rol:""
+      rol: ""
     };
   },
   mounted() {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    // La sesión vive en sessionStorage cuando no se marcó "Recordarme"
+    const raw = sessionStorage.getItem("user") || localStorage.getItem("user") || "{}";
+    const user = JSON.parse(raw);
     this.userName = user?.name || "Usuario";
     this.rol = user?.role?.name || "Usuario";
+  },
+  methods: {
+    /** Limpia la sesión y manda al login; no basta con navegar */
+    onLogout() {
+      logout();
+    }
   }
 };
 </script>
@@ -39,7 +48,7 @@ export default {
         <i class="mdi mdi-account-circle text-muted" />
         {{rol}}
       </v-list-item>
-      <v-list-item class="dropdown-item" @click="" to="/signin">
+      <v-list-item class="dropdown-item" @click="onLogout">
         <i class="mdi mdi-logout text-muted" />
         <span class="align-middle" data-key="t-logout">Cerrar sesión</span>
       </v-list-item>

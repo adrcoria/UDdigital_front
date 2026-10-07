@@ -32,6 +32,11 @@ import MachineryService from "./services/MachineryService";
 import MachineryMaintenanceService from "./services/MachineryMaintenanceService";
 import PersonalService from "./services/PersonalService";
 import PositionService from "./services/PositionService";
+import WebSectionService from "./services/webSectionService";
+import PermitService from "./services/permitService";
+
+const webSectionService = new WebSectionService();
+const permitService = new PermitService();
 const heatService = new HeatService();
 const birthService = new BirthService();
 const roleService = new RoleService();
@@ -102,5 +107,7 @@ export {
   liveStockService,
   bovineService,
   parameterService,
+  webSectionService,
+  permitService,
   bovinePhotoService
 };

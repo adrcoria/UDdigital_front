@@ -16,6 +16,17 @@ export default class RoleService {
   }
 
   /**
+   * Solo los roles activos.
+   * Endpoint: GET /role/active
+   *
+   * Es lo que debe usarse para asignar permisos: un rol desactivado no
+   * tiene usuarios trabajando, y mostrarlo invita a configurarlo de más.
+   */
+  async getActiveRoles() {
+    return http.get(`${this.basePath}/active`);
+  }
+
+  /**
    * Obtiene el detalle de un rol específico por su ID
    * Endpoint: GET /role/:id
    */

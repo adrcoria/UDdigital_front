@@ -61,6 +61,12 @@ export const menuItems: MenuItemType[] = [
         label: "Parámetros generales",
         link: "/configuraciones/parametros",
         roles: [ROLES.SUPER_USER, ROLES.ADMIN]
+      },
+      {
+        label: "Permisos",
+        link: "/configuraciones/permisos",
+        // Quién ve qué es decisión del Super Usuario
+        roles: [ROLES.SUPER_USER]
       }
     ]
   },

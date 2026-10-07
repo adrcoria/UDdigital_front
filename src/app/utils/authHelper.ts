@@ -118,6 +118,8 @@ export const logout = () => {
     localStorage.setItem("companyCode", savedCode);
   }
 
-  // 4. Redirigimos al login y forzamos recarga para limpiar estados de Vue/Pinia
-  window.location.href = "/login";
+  // 4. Redirigimos al login y forzamos recarga para limpiar estados de Vue/Pinia.
+  //    La ruta registrada es /signin: con /login el usuario caía en una pantalla
+  //    inexistente y tenía que corregir la URL a mano.
+  window.location.href = "/signin";
 };

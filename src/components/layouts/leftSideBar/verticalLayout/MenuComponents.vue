@@ -1,13 +1,17 @@
 <script lang="ts" setup>
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import { menuItems } from "@/components/layouts/utils";
 import { useLayoutStore } from "@/store/app";
+import { usePermissionsStore } from "@/store/permissions";
 import { SIDEBAR_SIZE } from "@/app/const";
 import { useRoute, useRouter } from "vue-router";
 
 const state = useLayoutStore();
+const permissions = usePermissionsStore();
 const route = useRoute();
 const router = useRouter();
+
+onMounted(() => permissions.load());
 
 const path = computed(() => route.path);
 const isCompactSideBar = computed(() => state.sideBarSize === SIDEBAR_SIZE.COMPACT);
@@ -30,7 +34,14 @@ const hasAccess = (roles?: string[]) => {
 
 // Filtra menú incluyendo lógica para headers
 const filteredMenuItems = computed(() => {
-  const hasAccess = (roles?: string[]) => {
+  /**
+   * El permiso configurado manda; si no hay permisos cargados para la ruta,
+   * se respeta el filtro por rol de siempre.
+   */
+  const hasAccess = (roles?: string[], link?: string) => {
+    const permitido = permissions.canAccess(link);
+    if (permitido !== null) return permitido;
+
     if (!roles) return false;
     return roles.length === 0 || roles.includes(userRole);
   };
@@ -51,17 +62,18 @@ const filteredMenuItems = computed(() => {
       subMenu = item.subMenu
         .map(sub => {
           if (sub.subMenu) {
-            const filteredNested = sub.subMenu.filter(n => hasAccess(n.roles));
-            return filteredNested.length > 0 || hasAccess(sub.roles)
+            const filteredNested = sub.subMenu.filter(n => hasAccess(n.roles, n.link));
+            return filteredNested.length > 0 || hasAccess(sub.roles, sub.link)
               ? { ...sub, subMenu: filteredNested }
               : null;
           }
-          return hasAccess(sub.roles) ? sub : null;
+          return hasAccess(sub.roles, sub.link) ? sub : null;
         })
         .filter(Boolean);
     }
 
-    const canAccessItem = hasAccess(item.roles) || subMenu.length > 0;
+    // Un menú padre se muestra si tiene permiso propio o si alguno de sus hijos lo tiene
+    const canAccessItem = hasAccess(item.roles, item.link) || subMenu.length > 0;
 
     if (canAccessItem) {
       const finalItem = item.subMenu ? { ...item, subMenu } : item;
