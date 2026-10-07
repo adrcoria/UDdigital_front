@@ -41,6 +41,7 @@ export const RUTAS_DEL_FRONT = [
   "/configuraciones/empresas",
   "/configuraciones/rancheros",
   "/configuraciones/parametros",
+  "/configuraciones/roles",
   "/configuraciones/permisos",
   "/administracion/ingresos-egresos",
   "/reportes",

@@ -33,4 +33,30 @@ export default class RoleService {
   async getRoleById(id: string) {
     return http.get(`${this.basePath}/${id}`);
   }
+
+  /** POST /role */
+  async createRole(payload: { name: string; description?: string; isActive: boolean }) {
+    return http.post(this.basePath, payload);
+  }
+
+  /** PATCH /role/:id */
+  async updateRole(
+    id: string,
+    payload: Partial<{ name: string; description: string; isActive: boolean }>
+  ) {
+    return http.patch(`${this.basePath}/${id}`, payload);
+  }
+
+  /**
+   * Activa o desactiva el rol. No recibe cuerpo: el backend alterna el estado.
+   * PATCH /role/:id/toggle-status
+   */
+  async toggleRoleStatus(id: string) {
+    return http.patch(`${this.basePath}/${id}/toggle-status`, {});
+  }
+
+  /** DELETE /role/:id */
+  async deleteRole(id: string) {
+    return http.delete(`${this.basePath}/${id}`);
+  }
 }

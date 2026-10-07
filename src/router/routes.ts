@@ -86,6 +86,16 @@ const configRoutes = [
     }
   },
   {
+    path: "/configuraciones/roles",
+    name: "Roles",
+    component: () => import("@/views/roles/Roles.vue"),
+    meta: {
+      title: "Roles",
+      authRequired: true,
+      layout: DefaultLayout
+    }
+  },
+  {
     path: "/configuraciones/permisos",
     name: "Permisos",
     component: () => import("@/views/permisos/Permisos.vue"),

@@ -36,6 +36,7 @@ FROM (
   UNION ALL SELECT 'settings-companies',          'Empresas',                  'Ranchos y unidades de producción',           '/configuraciones/empresas'
   UNION ALL SELECT 'settings-ranchers',           'Rancheros',                 'Catálogo de rancheros',                      '/configuraciones/rancheros'
   UNION ALL SELECT 'settings-parameters',         'Parámetros generales',      'Valores globales del sistema',               '/configuraciones/parametros'
+  UNION ALL SELECT 'settings-roles',              'Roles',                     'Alta y administración de roles',             '/configuraciones/roles'
   UNION ALL SELECT 'settings-permits',            'Permisos',                  'Asignación de secciones por rol',            '/configuraciones/permisos'
   UNION ALL SELECT 'accounting-operations',       'Ingresos y egresos',        'Registro de operaciones contables',          '/administracion/ingresos-egresos'
   UNION ALL SELECT 'reports',                     'Reportes',                  'Centro de reportes operativos',              '/reportes'
@@ -78,10 +79,10 @@ WHERE r.id = '09f145c3-9bcc-4573-aa43-7f72f033a28f'   -- Super usuario
 -- VERIFICACIÓN
 -- ---------------------------------------------------------------------
 
--- Deben salir 19 secciones activas
+-- Deben salir 20 secciones activas
 -- SELECT COUNT(*) AS secciones FROM web_sections WHERE is_active = 1;
 
--- Y 19 permisos para el Super usuario
+-- Y 20 permisos para el Super usuario
 -- SELECT r.name AS rol, COUNT(*) AS secciones
 -- FROM permits p
 -- JOIN role r ON r.id = p.id_role

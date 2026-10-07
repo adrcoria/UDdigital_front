@@ -63,6 +63,11 @@ export const menuItems: MenuItemType[] = [
         roles: [ROLES.SUPER_USER, ROLES.ADMIN]
       },
       {
+        label: "Roles",
+        link: "/configuraciones/roles",
+        roles: [ROLES.SUPER_USER]
+      },
+      {
         label: "Permisos",
         link: "/configuraciones/permisos",
         // Quién ve qué es decisión del Super Usuario
